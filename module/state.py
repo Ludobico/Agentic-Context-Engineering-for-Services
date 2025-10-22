@@ -29,6 +29,6 @@ class State(TypedDict):
 
     max_playbook_size : int
     dedup_threshold : float
-    retrieval_threshhold : float
+    retrieval_threshold : float
 
     
