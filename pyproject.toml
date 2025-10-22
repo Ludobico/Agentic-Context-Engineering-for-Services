@@ -29,4 +29,5 @@ dependencies = [
     "langgraph>=1.0.1",
     "pytz>=2025.2",
     "sentence-transformers>=5.1.1",
+    "sqlalchemy>=2.0.44",
 ]

@@ -6,7 +6,6 @@ class PlaybookEntry(TypedDict):
     content : str
     helpful_count : int
     harmful_count : int
-    embedding : Optional[List[float]]
     created_step : int
     last_used_step : int
 
@@ -14,6 +13,7 @@ class State(TypedDict):
     query : str
     playbook : List[PlaybookEntry]
     solution : Optional[str]
+    verbose : Optional[bool]
 
     retrieved_bullets : List[PlaybookEntry]
     used_bullet_ids : List[str]
@@ -26,5 +26,9 @@ class State(TypedDict):
 
     # playnook management
     current_step : int
+
     max_playbook_size : int
     dedup_threshold : float
+    retrieval_threshhold : float
+
+    
