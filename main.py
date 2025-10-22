@@ -1,6 +1,4 @@
-def main():
-    print("Hello from agentic-context-engineering-for-services!")
+import sys
+import pprint
 
-
-if __name__ == "__main__":
-    main()
+pprint.pprint(sys.path)

@@ -45,11 +45,10 @@ class EmbeddingPreprocessor:
 
         model_kwargs = {
             "device" : device,
-            "cache_folder" : download_path,
             "token" : access_key
         }
         model_name = "google/embeddinggemma-300m"
-        embedding_model_name = HuggingFaceEmbeddings(model_name = model_name, encode_kwargs={"normalize_embeddings" : True}, model_kwargs=model_kwargs)
+        embedding_model_name = HuggingFaceEmbeddings(model_name = model_name, cache_folder = download_path, encode_kwargs={"normalize_embeddings" : True}, model_kwargs=model_kwargs)
         return embedding_model_name
     
     @staticmethod
@@ -62,9 +61,10 @@ class EmbeddingPreprocessor:
 
         model_kwargs = {
             "device" : device,
-            "cache_folder" : download_path,
             "token" : access_key
         }
-        embedding_model_name = HuggingFaceEmbeddings(model_name = model_name, encode_kwargs={"normalize_embeddings" : True}, model_kwargs=model_kwargs)
+        embedding_model_name = HuggingFaceEmbeddings(model_name = model_name, cache_folder = download_path, encode_kwargs={"normalize_embeddings" : True}, model_kwargs=model_kwargs)
         return embedding_model_name
-    
+
+if __name__ == "__main__":
+    embedding = EmbeddingPreprocessor.default_embedding_model()

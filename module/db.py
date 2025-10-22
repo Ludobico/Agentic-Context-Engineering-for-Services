@@ -24,5 +24,29 @@ class PlayBookMetadata(Base):
     created_step = Column(Integer, default=0)
     last_used_step = Column(Integer, default=0)
 
-sqlite_db_path = env.get_
-engine = create_engine()
+db_path = f"sqlite:///{env.get_db_path}"
+engine = create_engine(db_path)
+SessionLocal = sessionmaker(autoflush=False, bind=engine)
+Base.metadata.create_all(bind=engine)
+
+
+
+def test_sql():
+    session = SessionLocal()
+    new_item = PlayBookMetadata(
+        category="테스트 카테고리",
+        content="이건 테스트 콘텐츠입니다.",
+        helpful_count=1,
+        harmful_count=0
+    )
+
+    session.add(new_item)
+    session.commit()
+
+    print("데이터 추가 완료")
+    result = session.query(PlayBookMetadata).filter_by(category="테스트 카테고리").first()
+
+    print(result.content)
+
+if __name__ == "__main__":
+    test_sql()
