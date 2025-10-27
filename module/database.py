@@ -52,15 +52,15 @@ class PlayBookVectorStore:
             # 컬렉션이 없으면 새로 생성
             embedding_size = embedding_model._client.get_sentence_embedding_dimension()
         
-        client.create_collection(
-            collection_name=self.collection_name,
-            vectors_config=models.VectorParams(
-                size=embedding_size,
-                distance=models.Distance.COSINE
+            client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config=models.VectorParams(
+                    size=embedding_size,
+                    distance=models.Distance.COSINE
+                )
             )
-        )
 
-        vector_store = QdrantVectorStore(client = client, collection_name = self.collection_name, embeddings = embedding_model)
+        vector_store = QdrantVectorStore(client = client, collection_name = self.collection_name, embedding = embedding_model)
         return vector_store
 
     def add_playbook_entry(self, store : QdrantVectorStore, entry : PlaybookEntry):
@@ -106,4 +106,75 @@ class PlayBookVectorStore:
         )
 
     def delete_playbook_entries(self, store : QdrantVectorStore, ids : List[str]):
-        store.client.delete(collection_name=self.collection_name, points_selector=ids)
+        if not ids:
+            return
+        
+        logger.debug(f"Deleting {len(ids)} entries from vector store")
+
+        try:
+            store.client.delete(
+                collection_name=self.collection_name,
+                points_selector=models.PointIdsList(points=ids)
+            )
+        
+        except Exception as e:
+            logger.error(f"Failed to delete entries : {e}")
+        
+
+    # generator node의 retrieved_bullets 에 전달될 entries 로드
+    def load_all_playbook_entries(self, store : QdrantVectorStore) -> List[PlaybookEntry]:
+        logger.debug(f"Loading all entries from collection : {self.collection_name}")
+
+        client = store.client
+        all_entries : List[PlaybookEntry] = []
+
+        try:
+            offset = None
+            while True:
+                records, next_page_offset = client.scroll(
+                    collection_name=self.collection_name,
+                    limit=1000,
+                    offset=offset,
+                    with_payload=True, # 메타데이터 포함
+                    with_vectors=False
+                )
+
+                # 로드할 데이터가 없을때
+                if not records:
+                    break
+
+                for record in records:
+                    payload = record.payload
+                    if not payload:
+                        continue
+
+                    content = payload.get("page_content")
+                    if not content:
+                        logger.warning(f"Skipping entry {record.id}, page_content not found")
+                        continue
+                    
+                    # Qdrant payload로부터 PlaybookEntry 딕셔너리 재구성
+                    entry = PlaybookEntry(
+                        entry_id=payload.get('entry_id', record.id),
+                        category=payload.get('category', 'general'),
+                        content=content,
+                        helpful_count=payload.get('helpful_count', 0),
+                        harmful_count=payload.get('harmful_count', 0),
+                        created_step=payload.get('created_step', 0),
+                        last_used_step=payload.get('last_used_step', 0)
+                    )
+                    all_entries.append(entry)
+
+                if next_page_offset is None:
+                    break
+
+                offset = next_page_offset
+
+            logger.info(f"Successfully loaded {len(all_entries)} entries from vector store")
+            return all_entries
+        
+        except Exception as e:
+            logger.error(f"Failed to load all entries from vector store")
+            return []
+
+
