@@ -90,8 +90,13 @@ class GetEnv:
         return vector_store_dir
     
     @property
-    def get_vector_store_path(self):
+    def get_vector_store_name(self):
         vector_store_name = self.get_database_config['VECTOR_STORE_NAME']
+        return vector_store_name
+    
+    @property
+    def get_vector_store_path(self):
+        vector_store_name = self.get_vector_store_name
         vector_store_path = os.path.join(self.get_vector_store_dir, vector_store_name)
         return vector_store_path
     
