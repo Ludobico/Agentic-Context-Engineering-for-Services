@@ -4,7 +4,7 @@ from langchain_openai import ChatOpenAI
 env = GetEnv()
 openai_api_key = env.get_openai_api_key
 
-def gpt(temperature : float = 0.1, model : str = 'gpt-4o-mini', streaming : bool = True):
+def gpt(temperature : float = 0.1, model : str = 'gpt-4o-mini', streaming : bool = True, **kwargs):
     """
     Args:
     temperature (float, optional): The temperature parameter for the chat model. Defaults to 0.1.
@@ -14,5 +14,5 @@ def gpt(temperature : float = 0.1, model : str = 'gpt-4o-mini', streaming : bool
     Returns:
         ChatOpenAI: The fine-tuned chat model.
     """
-    llm = ChatOpenAI(temperature=temperature, api_key=openai_api_key, model=model, streaming=streaming)
+    llm = ChatOpenAI(temperature=temperature, api_key=openai_api_key, model=model, streaming=streaming, **kwargs)
     return llm
