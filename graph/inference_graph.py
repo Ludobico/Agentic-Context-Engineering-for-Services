@@ -3,7 +3,7 @@ import asyncio
 
 from config.getenv import GetEnv
 from core.state import State
-from node.nodes import generator_node
+from node.nodes import generator_node, evaluator_node, reflector_node, curator_node
 from graph.graph_utils import solution_stream
 
 env = GetEnv()
@@ -13,9 +13,15 @@ def create_inference_graph():
     builder = StateGraph(State)
 
     builder.add_node("generator", generator_node)
+    builder.add_node("evaluator", evaluator_node)
+    builder.add_node("reflector", reflector_node)
+    builder.add_node("curator", curator_node)
 
     builder.add_edge(START, 'generator')
-    builder.add_edge("generator", END)
+    builder.add_edge("generator", "evaluator")
+    builder.add_edge("evaluator", "reflector")
+    builder.add_edge("reflector", "curator")
+    builder.add_edge("curator", END)
 
     return builder.compile()
 
@@ -28,6 +34,7 @@ async def main(inputs):
         print(token, end="", flush=True)
         full_solution += token
 
+    print("\n")
 
 if __name__ == "__main__":
 

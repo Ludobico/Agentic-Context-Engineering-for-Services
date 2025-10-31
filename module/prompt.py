@@ -50,7 +50,7 @@ Your core responsibilities:
 Output format must be a JSON object with:
 - "root_cause": The fundamental reason for the outcome.
 - "key_insight": A generalizable principle learned from this experience.
-- "bullet_tags": An array of {{"entry_id": "...", "tag": "..."}} for each bullet used.
+- "bullet_tags": A **JSON object** where each **key** is the 'entry_id' from the "Used Playbook Bullets" section, and the corresponding **value** is its tag ('helpful', 'harmful', or 'neutral').
 """
 
     human_template = """
@@ -85,6 +85,27 @@ Maintain knowledge quality through deduplication, generalization, and incrementa
 Categories: "strategy", "code_snippet", "pitfall", "best_practice".
 
 **CRITICAL: You must respond in {language}.**
+
+Output requirements:
+- Return a JSON object with "reasoning" (your thought process) and "operations" (an array).
+- Each operation in the array must be one of the following two JSON object formats:
+
+1.  **For NEW insights (ADD):**
+    {{
+      "type": "ADD",
+      "category": "...",
+      "content": "..."
+    }}
+    (Your Python code will generate the new entry_id for this).
+
+2.  **For IMPROVING existing entries (UPDATE):**
+    {{
+      "type": "UPDATE",
+      "entry_id": "...",  // The ID of the *existing* entry to update
+      "content": "..."   // The new, improved content
+    }}
+
+- If no new or valuable insights are found, return an empty "operations" array.
 """
 
     human_template = """
@@ -94,15 +115,7 @@ Categories: "strategy", "code_snippet", "pitfall", "best_practice".
 ## New Reflection Insights:
 {reflection}
 
-## Playbook Statistics:
-- Current size: {current_size}
-- Max allowed: {max_size}
-
 Your task is to compare the new insights with the existing playbook and propose ADD or UPDATE operations for novel, valuable information.
-Output requirements:
-- Return a JSON object with "reasoning" and "operations" array.
-- Each operation: {{"type": "ADD" or "UPDATE", "entry_id": "...", "category": "...", "content": "..."}}
-- If no new insights, return an empty "operations" array.
 """
 
     messages = [
