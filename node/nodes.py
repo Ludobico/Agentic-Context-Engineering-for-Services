@@ -56,9 +56,6 @@ async def evaluator_node(state : State) -> State:
     # rating 과 comment 형식의 feedback
     feedback = await evaluator_chain.ainvoke(inputs)
 
-    rating = feedback['rating']
-    comment = feedback['comment']
-
     return {
         "feedback" : feedback
     }
