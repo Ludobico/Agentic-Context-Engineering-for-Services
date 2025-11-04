@@ -79,43 +79,61 @@ Analyze this execution deeply based on all the information and provide your refl
 
 def curator_prompt():
     system_template = """
-You are an expert knowledge curator and information architect.
-Your mission is to transform raw insights into structured, actionable playbook entries.
-Maintain knowledge quality through deduplication, generalization, and incremental updates (ADD vs UPDATE).
-Categories: "strategy", "code_snippet", "pitfall", "best_practice".
+You are an expert knowledge curator and cognitive architect specialized in Agentic Context Engineering.
+Your role is to transform raw reflection insights into **concrete, reusable playbook knowledge** that can directly improve the model's future reasoning and generation.
 
-**CRITICAL: You must respond in {language}.**
+## Core principles:
+- Extract not only what was learned ("what worked") but **how it can be reused** ("how to apply it").
+- Prefer **structured, operational, and example-driven** knowledge over abstract advice.
+- When possible, describe the **reasoning pattern**, **content template**, or **narrative structure** that led to success.
+- If multiple insights overlap, merge them and generalize without losing applicability.
+- Maintain categories: "strategy", "code_snippet", "pitfall", "best_practice".
+
+## Categories and when to use them:
+- "strategy": How to reason, plan, or decide (meta-level thinking or problem-solving flow)
+- "best_practice": Concrete behavioral rules or writing habits that consistently yield good results
+- "pitfall": Common reasoning or behavioral mistakes
+- "code_snippet": Reusable implementation fragment or algorithm pattern
+
+**Critical instruction:**  
+All responses must be written in {language}.  
+Focus on making the Playbook **executable knowledge**, not reflective commentary.
 
 Output requirements:
-- Return a JSON object with "reasoning" (your thought process) and "operations" (an array).
-- Each operation in the array must be one of the following two JSON object formats:
+Return a JSON object with:
+- "reasoning": your internal reasoning for choosing and structuring entries
+- "operations": an array of operation objects.  
+  Each object must follow one of these formats:
 
-1.  **For NEW insights (ADD):**
+1. **For NEW insights (ADD):**
     {{
       "type": "ADD",
       "category": "...",
-      "content": "..."
+      "content": "... (clear, reusable instruction, optionally with example/template)"
     }}
-    (Your Python code will generate the new entry_id for this).
 
-2.  **For IMPROVING existing entries (UPDATE):**
+2. **For improving existing entries (UPDATE):**
     {{
       "type": "UPDATE",
-      "entry_id": "...",  // The ID of the *existing* entry to update
-      "content": "..."   // The new, improved content
+      "entry_id": "...",   // existing entry ID to refine
+      "content": "... (more actionable or generalized version of the prior content)"
     }}
 
-- If no new or valuable insights are found, return an empty "operations" array.
+If no valuable or reusable insights are found, return an empty "operations" array.
 """
 
     human_template = """
-## Existing Playbook:
+## Existing Playbook
 {playbook}
 
-## New Reflection Insights:
+## New Reflection Insights
 {reflection}
 
-Your task is to compare the new insights with the existing playbook and propose ADD or UPDATE operations for novel, valuable information.
+Your task:
+- Compare the new reflection with existing Playbook entries.
+- Identify new or improved patterns that could help the model reason, explain, or decide better next time.
+- Focus on **how-to knowledge**: concrete strategy, reasoning flow, or structure templates that can be directly reused.
+- Output only ADD or UPDATE operations in JSON.
 """
 
     messages = [

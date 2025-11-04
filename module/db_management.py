@@ -84,54 +84,56 @@ class VectorStore:
         If the store does not exist, create a new one.
         """
         try:
+            # 1. 컬렉션이 존재하는지 확인
             self.client.get_collection(self.db_name)
-            collection_exists = True
-        except ValueError:
-            collection_exists = False
-
-        if collection_exists:
             if verbose:
                 logger.debug(f"Appending documents to existing Qdrant collection: {self.db_name}")
 
-            vector_store = QdrantVectorStore(
-                client=self.client,
-                collection_name=self.db_name,
-                embedding=self.embedding_model,
-            )
-
-            vector_store.add_documents(data)
-
-            if verbose:
-                logger.info(f"Collection '{self.db_name}' updated with {len(data)} new documents.")
-
-        else:
+        except Exception: # ValueError 또는 qdrant_client.http.exceptions.UnexpectedResponse 등
+            # 2. 컬렉션이 없으면 새로 생성
             if verbose:
                 logger.debug(f"Creating new Qdrant collection: {self.db_name} at {self.db_path}")
+            
+            # 임베딩 모델의 차원(dimension)을 확인합니다.
+            try:
+                # HuggingFaceEmbeddings의 경우 .client에 실제 모델이 있을 수 있음
+                embedding_size = self.embedding_model._client.get_sentence_embedding_dimension()
+            except AttributeError:
+                # 또는 _client (기존 코드 존중)
+                try:
+                    embedding_size = self.embedding_model._client.get_sentence_embedding_dimension()
+                except AttributeError:
+                    # 그래도 실패하면, "test" 문자열을 임베딩하여 차원 추론
+                    logger.warning("Could not find get_sentence_embedding_dimension(). Inferring size from dummy text.")
+                    embedding_size = len(self.embedding_model.embed_query("test"))
 
+            # self.client (단일 인스턴스)를 사용하여 컬렉션 생성
             self.client.create_collection(
                 collection_name=self.db_name,
                 vectors_config=models.VectorParams(
-                    size=self.embedding_model._client.get_sentence_embedding_dimension(),
-                    distance=models.Distance.COSINE,
+                    size=embedding_size,
+                    distance=models.Distance.COSINE, # 또는 models.Distance.DOT 등 필요에 따라
                 )
             )
-
-            vector_store = QdrantVectorStore(
-                client=self.client,
-                collection_name=self.db_name,
-                embedding=self.embedding_model,
-            )
-            vector_store.from_documents(
-                documents=data,
-                embedding=self.embedding_model,
-                path=self.db_path,
-                collection_name=self.db_name, 
-            )
-
             if verbose:
-                logger.info(f"Collection '{self.db_name}' successfully created with {len(data)} documents.")
+                 logger.info(f"Collection '{self.db_name}' created at {self.db_path}")
+
+        # 3. LangChain 래퍼(wrapper) 생성
+        vector_store = QdrantVectorStore(
+            client=self.client,
+            collection_name=self.db_name,
+            embedding=self.embedding_model,
+        )
+
+        # 4. [중요] from_documents(...) 대신 add_documents(...) 사용
+        # path= 인자를 넘기지 않으므로 새 클라이언트를 생성하려 시도하지 않아 런타임 오류가 발생하지 않습니다.
+        # 컬렉션이 있든 없든(방금 만들었든) 문서를 추가합니다.
+        vector_store.add_documents(data)
+
+        if verbose:
+            logger.info(f"Collection '{self.db_name}' successfully updated with {len(data)} new documents.")
     
-    def from_disk(self) ->QdrantVectorStore:
+    def from_disk(self) -> QdrantVectorStore:
 
         if not os.path.exists(self.db_path):
             raise FileNotFoundError(f"The path {self.db_path} doen't exist")

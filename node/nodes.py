@@ -26,7 +26,6 @@ curator_chain = curator_prompt() | llm | json_parser
 # DB
 vector_store = VectorStore(use_gpu = True)
 embedding_model = vector_store.get_embedding_model
-retriever = vector_store.from_disk()
 db = PlayBookDB()
 
 async def generator_node(state : State) -> State:
@@ -197,7 +196,8 @@ async def retriever_playbook_node(state : State) -> State:
 
     if vector_store_doc_count == 0:
         return {"retrieved_bullets": []}
-
+    
+    retriever = vector_store.from_disk()
     docs = retriever.similarity_search_by_vector(
         embedding=query_embedding,
         k=top_k,
