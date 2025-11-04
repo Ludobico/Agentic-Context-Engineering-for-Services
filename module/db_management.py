@@ -14,7 +14,6 @@ from qdrant_client import QdrantClient, models
 
 from sqlalchemy import create_engine, MetaData, Table, Column, String, Integer, DateTime, insert, select, update, delete
 from sqlalchemy.engine import Engine
-from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 
 env = GetEnv()
@@ -22,6 +21,26 @@ logger = Logger(__name__)
 
 
 class VectorStore:
+    """
+    Manages a Qdrant vector store for document embeddings.
+
+    This class handles the initialization of the embedding model and the Qdrant client,
+    providing methods to add documents to the store and retrieve the store instance.
+
+    Args:
+        embedding_dir_or_repo_name (Optional[str]): 
+            The local directory path or Hugging Face repository name for the embedding model.
+            If None, it attempts to use a default model specified in `EmbeddingPreprocessor`,
+            which typically requires a Hugging Face token to be available in the environment.
+            Defaults to None.
+        db_name (Optional[str]): 
+            The name of the Qdrant collection (database).
+            If None, it falls back to the name specified by the `get_vector_store_name`
+            environment variable. Defaults to None.
+        **kwargs: 
+            Additional keyword arguments that are passed directly to the HuggingFaceEmbeddings
+            model constructor, allowing for custom model configuration.
+    """
     huggingface_token = env.get_huggingface_token
     def __init__(self,
                  embedding_dir_or_repo_name : Optional[str] = None,
@@ -44,6 +63,9 @@ class VectorStore:
             )
         else:
             raise ValueError("Invalid initialization parameters for VectorStore.")
+    @property
+    def get_embedding_model(self) -> HuggingFaceEmbeddings:
+        return self.embedding_model
     
     def _get_db_info(self, db_name : Optional[str] = None) -> str:
         if db_name is None:
