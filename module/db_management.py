@@ -5,14 +5,21 @@ import shutil
 from utils import Logger
 from config.getenv import GetEnv
 from module.embed import EmbeddingPreprocessor
+from core.state import PlaybookEntry
 
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.documents import Document
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient, models
 
+from sqlalchemy import create_engine, MetaData, Table, Column, String, Integer, DateTime, insert, select, update, delete
+from sqlalchemy.engine import Engine
+from sqlalchemy.exc import IntegrityError
+from datetime import datetime
+
 env = GetEnv()
 logger = Logger(__name__)
+
 
 class VectorStore:
     huggingface_token = env.get_huggingface_token
@@ -49,7 +56,7 @@ class VectorStore:
         self,
         data: list[Document],
         verbose: bool = True,
-    ) -> QdrantVectorStore:
+    ):
         """
         Append documents to an existing local Qdrant vector store.
         If the store does not exist, create a new one.
@@ -124,8 +131,80 @@ class VectorStore:
             logger.warning(f"Could not count docs in {self.db_name} (collection may not exist) : {e}")
             return 0
         
+class PlayBookDB:
+    def __init__(self):
+        self.db_path = env.get_db_path
+        self.engine : Engine = create_engine(f"sqlite:///{self.db_path}", echo=False, future=True)
+        self.metadata = MetaData()
 
+        self.playbook = Table(
+            "playbook",
+            self.metadata,
+            Column("entry_id", String, primary_key=True),
+            Column("category", String, nullable=False),
+            Column("content", String, nullable=False),
+            Column("helpful_count", Integer, default=0),
+            Column("harmful_count", Integer, default=0),
+            Column("created_at", DateTime, nullable=False),
+            Column("updated_at", DateTime, nullable=False),
+            Column("last_used_at", DateTime, nullable=True),
+        )
 
+        self.metadata.create_all(self.engine)
+    
+    def add_entry(self, entry: PlaybookEntry):
+        stmt = insert(self.playbook).values(
+            entry_id = entry['entry_id'],
+            category = entry['category'],
+            content = entry['content'],
+            helpful_count = entry['helpful_count'],
+            harmful_count = entry['harmful_count'],
+            created_at = entry['created_at'],
+            updated_at = entry['updated_at'],
+            last_used_at = entry.get('last_used_at')
+        ).prefix_with("OR REPLACE")
 
+        with self.engine.begin() as conn:
+            conn.execute(stmt)
+    
 
-            
+    def get_entry(self, entry_id : str) -> PlaybookEntry | None:
+        stmt = select(self.playbook).where(self.playbook.c.entry_id == entry_id)
+        with self.engine.connect() as conn:
+            result = conn.execute(stmt).mappings().first()
+            return dict(result) if result else None
+        
+    def get_all_entries(self) -> list[PlaybookEntry]:
+        stmt = select(self.playbook)
+        with self.engine.connect() as conn:
+            results = conn.execute(stmt).mappings().all()
+            return [dict(r) for r in results]
+    
+    def delete_entry(self, entry_id : str):
+        stmt = delete(self.playbook).where(self.playbook.c.entry_id == entry_id)
+        with self.engine.begin() as conn:
+            conn.execute(stmt)
+    
+    def update_last_used(self, entry_id : str, timestamp : datetime):
+        stmt = (
+            update(self.playbook)
+            .where(self.playbook.c.entry_id == entry_id)
+            .values(last_used_at = timestamp, updated_at = datetime.now())
+        )
+        with self.engine.begin() as conn:
+            conn.exec_driver_sql(stmt)
+
+if __name__ == "__main__":
+    db = PlayBookDB()
+
+    entry = {
+        "entry_id": "pbk_001",
+        "category": "motivation",
+        "content": "Focus and be consistent.",
+        "helpful_count": 5,
+        "harmful_count": 0,
+        "created_at": datetime.now(),
+        "updated_at": datetime.now(),
+    }
+
+    db.add_entry(entry)

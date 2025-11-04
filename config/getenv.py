@@ -54,6 +54,11 @@ class GetEnv:
         return db_dir
     
     @property
+    def get_db_name(self):
+        sqlite_db_name = self.get_database_config['SQLITE_DB_NAME']
+        return sqlite_db_name
+    
+    @property
     def get_db_path(self):
         sqlite_db_name = self.get_database_config['SQLITE_DB_NAME']
         sqlite_db_path = os.path.join(self.get_db_dir, sqlite_db_name)
