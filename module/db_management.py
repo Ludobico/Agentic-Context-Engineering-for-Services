@@ -19,6 +19,8 @@ from datetime import datetime
 env = GetEnv()
 logger = Logger(__name__)
 
+_db_instance = None
+_vector_store_instance = None
 
 class VectorStore:
     """
@@ -155,6 +157,24 @@ class VectorStore:
             logger.warning(f"Could not count docs in {self.db_name} (collection may not exist) : {e}")
             return 0
         
+    def delete_by_entry_ids(self, entry_ids : list[str]):
+        if not entry_ids:
+            return
+        
+        self.client.delete(
+            collection_name=self.db_name,
+            points_selector=models.Filter(
+                should=[
+                    models.FieldCondition(
+                        key='entry_id',
+                        match=models.MatchValue(value=entry_id)
+                    ) for entry_id in entry_ids
+                ]
+            ),
+            wait=True
+        )
+        logger.info(f"Delete {len(entry_ids)} entries from vector store")
+        
 class PlayBookDB:
     def __init__(self):
         self.db_path = env.get_db_path
@@ -217,6 +237,18 @@ class PlayBookDB:
         )
         with self.engine.begin() as conn:
             conn.exec_driver_sql(stmt)
+
+def get_db_instance() -> PlayBookDB:
+    global _db_instance
+    if _db_instance is None:
+        _db_instance = PlayBookDB()
+    return _db_instance
+
+def get_vector_store_instance() -> VectorStore:
+    global _vector_store_instance
+    if _vector_store_instance is None:
+        _vector_store_instance = VectorStore(use_gpu=True)
+    return _vector_store_instance
 
 if __name__ == "__main__":
     db = PlayBookDB()

@@ -1,9 +1,15 @@
 import tiktoken
 import re
 import json
-from typing import Any
+from typing import Any, Optional
 from langchain_core.callbacks import AsyncCallbackHandler
 from langchain_core.output_parsers import JsonOutputParser
+from langchain_huggingface import HuggingFaceEmbeddings
+from module.db_management import VectorStore
+from core.state import PlaybookEntry
+from config.getenv import GetEnv
+
+env = GetEnv()
 
 def token_calculator(text : str) -> int:
     encoding = tiktoken.get_encoding("o200k_base")
@@ -144,3 +150,43 @@ class StrictJsonOutputParser(JsonOutputParser):
             return json.loads(text)
         except:
             return None
+
+def prune_playbook(playbook : PlaybookEntry) -> PlaybookEntry:
+    """
+    Prunes the playbook by removing entries where `harmful_count` > `helpful_count`
+    """
+    ids_to_prune = []
+
+    for entry in playbook:
+        if entry.get("harmful_count", 0) > entry.get("helpful_count", 0):
+            ids_to_prune.append(entry['entry_id'])
+        
+    pruned_playbook = [entry for entry in playbook if entry['entry_id'] not in ids_to_prune]
+
+    return pruned_playbook, ids_to_prune
+
+def is_duplicate_entry(
+        content : str,
+        vector_store : VectorStore,
+        embedding_model : Optional[HuggingFaceEmbeddings] = None,
+        threshold : Optional[float] = None
+    ) -> bool:
+    if threshold is None:
+        threshold = float(env.get_playbook_config['DEDUP_THRESHOLD'])
+    
+    if embedding_model is None:
+        embedding_model = VectorStore.get_embedding_model
+
+        if vector_store.get_doc_count() == 0:
+            return False
+        
+        retriever = vector_store.from_disk()
+        query_embedding = embedding_model.embed_query(content)
+
+        similar_docs = retriever.similarity_search_by_vector(
+            embedding=query_embedding,
+            k=1,
+            score_threshold=threshold
+        )
+
+        return bool(similar_docs)

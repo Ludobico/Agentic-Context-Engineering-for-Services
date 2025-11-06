@@ -4,10 +4,10 @@ import uuid
 from datetime import datetime
 
 from module.prompt import curator_prompt, evaluator_prompt, generator_prompt, reflector_prompt
-from node.node_utils import SolutionOnlyStreamCallback, StrictJsonOutputParser
+from node.node_utils import SolutionOnlyStreamCallback, StrictJsonOutputParser, prune_playbook, is_duplicate_entry
 from core import State, PlaybookEntry
 from module.LLMs import gpt
-from module.db_management import VectorStore, PlayBookDB
+from module.db_management import VectorStore, PlayBookDB, get_db_instance, get_vector_store_instance
 from config.getenv import GetEnv
 from utils import Logger, highlight_print
 
@@ -24,9 +24,9 @@ reflector_chain = reflector_prompt() | llm | json_parser
 curator_chain = curator_prompt() | llm | json_parser
 
 # DB
-vector_store = VectorStore(use_gpu = True)
+vector_store = get_vector_store_instance()
 embedding_model = vector_store.get_embedding_model
-db = PlayBookDB()
+db = get_db_instance()
 
 async def generator_node(state : State) -> State:
     logger.debug("GENERATOR")
@@ -138,12 +138,19 @@ async def update_playbook_node(state : State) -> State:
                 break
     
     # delta operation
+    docs_to_add_to_vector_store = []
+    ids_to_delete_from_vector_store = []
 
     # curator 노드의 operations 부분에서 각각 type, category, content로 나눠짐
     for op in state.get("new_insights", []):
         if op.get("type").upper() == "ADD":
             new_id = str(uuid.uuid4())
             content = op['content']
+
+            # 중복 제거
+            if is_duplicate_entry(content, vector_store, embedding_model):
+                logger.debug(f"Duplicate found for content : {content}. Skipping ADD")
+                continue
 
             # expected values : strategy, code_snippet, pitfall, best_practice
             category = op.get("category", "uncategorized")
@@ -175,12 +182,56 @@ async def update_playbook_node(state : State) -> State:
 
             # DB 저장용
             db.add_entry(entry)
-
             updated_playbook.append(entry)
-    
-            # !!!!!!!!!!!!!!!!!! prune, dedup, update 구현 필요 !!!!!!!!!!!!!!!!!!!
+            docs_to_add_to_vector_store.append(doc)
 
-            return {"playbook" : updated_playbook}
+
+        elif op.get("type").upper() == "UPDATE":
+            entry_id_to_update = op.get("entry_id")
+            new_content = op.get("content")
+            if not entry_id_to_update or not new_content:
+                continue
+
+            for entry in updated_playbook:
+                if entry['entry_id'] == entry_id_to_update:
+                    # id가 같지만 오래된(update가 필요한) 플레이북 삭제
+                    ids_to_delete_from_vector_store.append(entry['entry_id'])
+
+                    entry['content'] = new_content
+                    entry['updated_at'] = datetime.now()
+
+                    db.add_entry(entry)
+                    
+
+                    doc = Document(
+                        page_content=entry['content'],
+                        metadata = {
+                        "entry_id" : entry['entry_id'],
+                        "category" : entry['category'],
+                        "helpful_count" : entry['helpful_count'],
+                        "harmful_count" : entry['harmful_count'],
+                        "created_at" : entry['created_at'].isoformat(),
+                        "updated_at" : entry['updated_at'].isoformat()
+                        }
+                    )
+                    docs_to_add_to_vector_store.append(doc)
+                    break
+    
+    updated_playbook, ids_to_prune = prune_playbook(updated_playbook)
+
+    if ids_to_prune:
+        logger.debug(f"Pruning {len(ids_to_prune)} entries")
+        for entry_id in ids_to_prune:
+            db.delete_entry(entry_id)
+        ids_to_delete_from_vector_store.extend(ids_to_prune)
+
+    if ids_to_delete_from_vector_store:
+        vector_store.delete_by_entry_ids(list(set(ids_to_delete_from_vector_store)))
+    
+    if docs_to_add_to_vector_store:
+        vector_store.to_disk(docs_to_add_to_vector_store)
+
+    return {"playbook" : updated_playbook}
 
 async def retriever_playbook_node(state : State) -> State:
     logger.debug("PLAYBOOK RETRIEVER")
