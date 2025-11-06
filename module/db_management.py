@@ -166,7 +166,7 @@ class VectorStore:
             points_selector=models.Filter(
                 should=[
                     models.FieldCondition(
-                        key='entry_id',
+                        key='metadata.entry_id',
                         match=models.MatchValue(value=entry_id)
                     ) for entry_id in entry_ids
                 ]
@@ -174,6 +174,54 @@ class VectorStore:
             wait=True
         )
         logger.info(f"Delete {len(entry_ids)} entries from vector store")
+
+    def get_entry_by_id(self, entry_id : str) -> dict | None:
+        records, _ = self.client.scroll(
+            collection_name=self.db_name,
+            scroll_filter=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="metadata.entry_id",
+                        match=models.MatchValue(value=entry_id)
+                    )
+                ]
+            ),
+            limit=1,
+            with_payload=True,
+            with_vectors=False
+        )
+
+        if not records:
+            return None
+        
+        point = records[0]
+        return point.payload
+    
+    def get_all_entries(self) -> list[dict]:
+        all_records = []
+        next_page_offset = None
+
+        while True:
+            records, next_page_offset = self.client.scroll(
+                collection_name=self.db_name,
+                scroll_filter=None,
+                limit=100,
+                with_payload=True,
+                with_vectors=False,
+                offset=next_page_offset
+            )
+        
+            if not records:
+                break
+
+            all_records.extend([r.payload for r in records])
+
+            if next_page_offset is None:
+                break
+                
+        return all_records
+
+
         
 class PlayBookDB:
     def __init__(self):

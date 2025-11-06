@@ -2,6 +2,7 @@ from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain_core.documents import Document
 import uuid
 from datetime import datetime
+import asyncio
 
 from module.prompt import curator_prompt, evaluator_prompt, generator_prompt, reflector_prompt
 from node.node_utils import SolutionOnlyStreamCallback, StrictJsonOutputParser, prune_playbook, is_duplicate_entry
@@ -143,7 +144,9 @@ async def update_playbook_node(state : State) -> State:
 
     # curator 노드의 operations 부분에서 각각 type, category, content로 나눠짐
     for op in state.get("new_insights", []):
-        if op.get("type").upper() == "ADD":
+        op_type = op.get("type").upper()
+
+        if op_type == "ADD":
             new_id = str(uuid.uuid4())
             content = op['content']
 
@@ -166,19 +169,19 @@ async def update_playbook_node(state : State) -> State:
                 updated_at=datetime.now()
             )
 
-            # vector store 저장용
-            doc = Document(
-                page_content=entry['content'],
-                metadata = {
-                    "entry_id" : entry['entry_id'],
-                    "category" : entry['category'],
-                    "helpful_count" : entry['helpful_count'],
-                    "harmful_count" : entry['harmful_count'],
-                    "created_at" : entry['created_at'].isoformat(),
-                    "updated_at" : entry['updated_at'].isoformat()
-                }
-            )
-            vector_store.to_disk([doc])
+            # vector store 저장용 -> UPDATE 노드가 추가됨에 따라 리스트에 추가 -> 추후 벡터스토어에 추가
+            # doc = Document(
+            #     page_content=entry['content'],
+            #     metadata = {
+            #         "entry_id" : entry['entry_id'],
+            #         "category" : entry['category'],
+            #         "helpful_count" : entry['helpful_count'],
+            #         "harmful_count" : entry['harmful_count'],
+            #         "created_at" : entry['created_at'].isoformat(),
+            #         "updated_at" : entry['updated_at'].isoformat()
+            #     }
+            # )
+            # vector_store.to_disk([doc])
 
             # DB 저장용
             db.add_entry(entry)
@@ -186,7 +189,7 @@ async def update_playbook_node(state : State) -> State:
             docs_to_add_to_vector_store.append(doc)
 
 
-        elif op.get("type").upper() == "UPDATE":
+        elif op_type == "UPDATE":
             entry_id_to_update = op.get("entry_id")
             new_content = op.get("content")
             if not entry_id_to_update or not new_content:
@@ -202,34 +205,36 @@ async def update_playbook_node(state : State) -> State:
 
                     db.add_entry(entry)
                     
-
-                    doc = Document(
-                        page_content=entry['content'],
-                        metadata = {
-                        "entry_id" : entry['entry_id'],
-                        "category" : entry['category'],
-                        "helpful_count" : entry['helpful_count'],
-                        "harmful_count" : entry['harmful_count'],
-                        "created_at" : entry['created_at'].isoformat(),
-                        "updated_at" : entry['updated_at'].isoformat()
-                        }
-                    )
-                    docs_to_add_to_vector_store.append(doc)
+                    docs_to_add_to_vector_store.append(entry)
                     break
     
     updated_playbook, ids_to_prune = prune_playbook(updated_playbook)
 
     if ids_to_prune:
         logger.debug(f"Pruning {len(ids_to_prune)} entries")
+        ids_to_delete_from_vector_store.extend(ids_to_prune)
         for entry_id in ids_to_prune:
             db.delete_entry(entry_id)
-        ids_to_delete_from_vector_store.extend(ids_to_prune)
 
     if ids_to_delete_from_vector_store:
         vector_store.delete_by_entry_ids(list(set(ids_to_delete_from_vector_store)))
     
     if docs_to_add_to_vector_store:
-        vector_store.to_disk(docs_to_add_to_vector_store)
+        docs = []
+        for entry in docs_to_add_to_vector_store:
+            doc = Document(
+            page_content=entry['content'],
+            metadata = {
+                "entry_id" : entry['entry_id'],
+                "category" : entry['category'],
+                "helpful_count" : entry['helpful_count'],
+                "harmful_count" : entry['harmful_count'],
+                "created_at" : entry['created_at'].isoformat(),
+                "updated_at" : entry['updated_at'].isoformat()
+                    }
+                )
+            docs.append(doc)
+        vector_store.to_disk(docs)
 
     return {"playbook" : updated_playbook}
 
