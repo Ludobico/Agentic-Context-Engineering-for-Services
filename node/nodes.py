@@ -123,6 +123,7 @@ async def curator_node(state : State) -> State:
     }
 
 async def update_playbook_node(state : State) -> State:
+    # halpful, harmful count 누적안됨, 무조건 helpful이 1로 시작 -> 해결필요
     logger.debug("PLAYBOOK DELTA UPDATE")
 
     updated_playbook = state['playbook'].copy()
@@ -261,6 +262,7 @@ async def retriever_playbook_node(state : State) -> State:
     )
 
     retrieved = []
+    current_time = datetime.now()
     for doc in docs:
         meta = doc.metadata
         retrieved.append({
@@ -271,6 +273,7 @@ async def retriever_playbook_node(state : State) -> State:
             "harmful_count": meta.get("harmful_count", 0),
             "created_at": meta.get("created_at"),
             "updated_at": meta.get("updated_at"),
+            "last_used_at" : current_time
         })
     
     
