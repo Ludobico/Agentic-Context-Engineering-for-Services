@@ -1,5 +1,7 @@
 from langgraph.graph import StateGraph, START, END
 import asyncio
+import os
+import shutil
 
 from config.getenv import GetEnv
 from core.state import State
@@ -38,6 +40,15 @@ async def run_query(inference_graph, state, query: str):
     print("\n")
     return state
 
+def delete_db():
+    db_dir = env.get_db_dir
+    vector_db_dir = env.get_vector_store_dir
+
+    for path in [db_dir, vector_db_dir]:
+        if os.path.exists(path):
+            shutil.rmtree(path)
+    return None
+
 
 async def main():
     inference_graph = create_inference_graph()
@@ -60,20 +71,34 @@ async def main():
         "retrieval_threshold": env.get_playbook_config["RETRIEVAL_THRESHOLD"],
     }
 
-    # ✅ 여러 번의 질문 실행 (학습 누적)
-    # ✅ ADD, UPDATE, DEDUP, PRUNE을 테스트하기 위한 질문 시나리오
     queries = [
-        # 1. ADD: .sort()에 대한 새로운 정보 추가
-        "파이썬에서 리스트를 정렬하는 가장 기본적인 방법은 뭐야?",
-        # 2. ADD: sorted()에 대한 새로운 정보 추가
-        "파이썬에서 원래 리스트를 바꾸지 않고 새롭게 정렬된 리스트를 만들려면 어떻게 해?",
-        # 3. UPDATE: .sort()에 reverse=True 파라미터를 추가하도록 업데이트 유도
-        "파이썬 리스트를 내림차순으로 정렬하려면 어떻게 해야 해?",
-        # 4. DEDUP: 1번 질문과 유사한 질문으로 중복 추가 방지 테스트
-        "파이썬 리스트를 정렬하는 방법 알려줘.",
-        # 5. PRUNE: 잘못된 정보(숫자/문자 혼합 정렬)를 제공하여 harmful_count를 높이고, 해당 항목 삭제 유도
-        "파이썬에서 숫자와 문자가 섞인 리스트를 정렬할 수 있어?",
-    ]
+            # 1. [Create] 초기 지식 생성
+            # 기대: Playbook에 새로운 항목(Entry)이 ADD 됨 (helpful=1)
+            "파이썬에서 현재 날짜와 시간을 구하는 가장 기본적인 코드를 알려줘.",
+
+            # 2. [Helpful Accumulate] 유용한 지식 재사용 및 카운트 증가
+            # 기대: 1번에서 만든 Entry가 검색(Retrieved)되고, 답변에 사용됨 -> helpful_count가 2로 증가
+            "방금 알려준 방법으로 오늘 날짜만 'YYYY-MM-DD' 형식으로 출력하려면 어떻게 수정해?",
+
+            # 3. [Refine/Update] 지식의 한계 발견 및 업데이트 (또는 Harmful 판정 유도)
+            # 의도: 단순 datetime.now()는 타임존 정보가 없다는 문제를 제기
+            # 기대: 기존 Entry의 내용이 수정되거나(UPDATE), 새로운 타임존 관련 Entry가 추가됨. 
+            # (만약 이전 답변이 틀렸다고 평가되면 harmful_count 증가 가능)
+            "알려준 코드로 시간을 구했는데, 이게 한국 시간인지 UTC인지 모르겠어. 명시적으로 'Asia/Seoul' 타임존을 적용하려면 어떻게 해?",
+
+            # 4. [Deduplication] 중복 방지 테스트
+            # 의도: 3번과 거의 동일한 의도의 질문을 던짐
+            # 기대: Curator가 "이미 타임존 관련 전략이 있다"고 판단하여 불필요한 ADD 연산을 수행하지 않고(Duplicate found), 기존 카운트만 올리거나 무시해야 함.
+            "파이썬 datetime 객체를 특정 타임존(예: 서울)으로 설정하는 방법을 다시 설명해줘.",
+
+            # 5. [Create & Prune] 용량 초과 유도 및 가지치기
+            # 의도: 날짜와 상관없는 새로운 주제 2개를 연속으로 던져 Playbook 용량(예: max=3)을 채움
+            # 기대: 새로운 Entry가 추가되면서, 가장 오래되었거나(LRU) helpful 카운트가 낮은 1번(기본 날짜) 또는 관련 없는 항목이 삭제(DELETE)됨.
+            "파이썬에서 딕셔너리 두 개를 하나로 합치는(merge) 최신 문법은 뭐야?",
+            
+            # 6. [Prune 확인] 가지치기 확정
+            "파이썬 리스트에서 중복을 제거하면서 순서를 유지하는 방법은?"
+        ]
 
     for i, q in enumerate(queries, start=1):
         print(f"\n==== 🧠 STEP {i}: {q} ====\n")

@@ -44,13 +44,18 @@ You are an expert AI performance analyst specializing in reflective learning.
 Your core responsibilities:
 1. Perform root cause analysis of the AI agent's behavior.
 2. Extract generalizable insights to improve future performance.
-3. Tag each used playbook bullet as 'helpful', 'harmful', or 'neutral'.
+3. **Evaluate the 'Retrieved Playbook Bullets'**. Determine if each retrieved bullet was actually useful for solving the task.
 
 **CRITICAL: You must respond in {language}.**
 Output format must be a JSON object with:
 - "root_cause": The fundamental reason for the outcome.
 - "key_insight": A generalizable principle learned from this experience.
-- "bullet_tags": A **JSON object** where each **key** is the 'entry_id' from the "Used Playbook Bullets" section, and the corresponding **value** is its tag ('helpful', 'harmful', or 'neutral').
+- "bullet_tags": A **List of JSON objects**. Each object must contain two keys: "entry_id" (the exact ID from the Retrieved Playbook Bullets) and "tag" ('helpful', 'harmful', or 'neutral').
+
+**Tagging Rules:**
+- 'helpful': The bullet was directly applied and contributed to the correct solution.
+- 'harmful': The bullet led the agent astray or caused an error.
+- 'neutral': The bullet was retrieved but irrelevant or not used.
 """
 
     human_template = """

@@ -75,8 +75,11 @@ async def evaluator_node(state : State) -> State:
 async def reflector_node(state : State) -> State:
     logger.debug("REFLECTOR")
 
-    used_bullets = [entry for entry in state['playbook'] if entry['entry_id'] in state.get("used_bullet_ids", [])]
-    used_bullets_str = [f"[{entry['entry_id']}] {entry['content']}" for entry in used_bullets] or "No related items"
+    # retrieve된 모든 항목을 평가 대상으로 지정
+    retrieved_bullets = state.get("retrieved_bullets", [])
+    used_bullets_str = '\n'.join([f"[{entry['entry_id']}] {entry['content']}" for entry in retrieved_bullets])
+    if not used_bullets_str:
+        used_bullets_str = "No related items retrieved."
 
     query = state.get("query")
     trajectory = state.get("trajectory") # generator
@@ -129,14 +132,19 @@ async def update_playbook_node(state : State) -> State:
     updated_playbook = state['playbook'].copy()
     current_step = state.get("current_step", 0)
 
-    # reflector 노드에서 반환되는 값
+    entries_to_save = set()
+
+    # reflector 노드에서 반환되는 값, 여기에서 helpful과 harmful을 누적
     bullet_tags = state.get("reflection", {}).get("bullet_tags", [])
+    highlight_print(state.get("reflection"), 'cyan')
     for tag_info in bullet_tags:
         for entry in updated_playbook:
             if entry['entry_id'] == tag_info['entry_id']:
                 if tag_info['tag'] == 'helpful' : entry['helpful_count'] += 1
                 elif tag_info['tag'] == 'harmful' : entry['harmful_count'] += 1
                 entry['last_used_at'] = current_step
+
+                entries_to_save.add(entry['entry_id'])
                 break
     
     # delta operation
@@ -185,9 +193,10 @@ async def update_playbook_node(state : State) -> State:
             # vector_store.to_disk([doc])
 
             # DB 저장용
+            docs_to_add_to_vector_store.append(entry)
             db.add_entry(entry)
             updated_playbook.append(entry)
-            docs_to_add_to_vector_store.append(doc)
+            
 
 
         elif op_type == "UPDATE":
@@ -199,15 +208,23 @@ async def update_playbook_node(state : State) -> State:
             for entry in updated_playbook:
                 if entry['entry_id'] == entry_id_to_update:
                     # id가 같지만 오래된(update가 필요한) 플레이북 삭제
+                    if entry['entry_id'] in entries_to_save:
+                        entries_to_save.remove(entry['entry_id'])
                     ids_to_delete_from_vector_store.append(entry['entry_id'])
 
                     entry['content'] = new_content
                     entry['updated_at'] = datetime.now()
 
                     db.add_entry(entry)
-                    
                     docs_to_add_to_vector_store.append(entry)
                     break
+    # 루프가 끝난 후, 카운트만 변경되고(UPDATE 안됨) 아직 저장되지 않은 항목들 일괄 저장
+    if entries_to_save:
+        for entry in updated_playbook:
+            if entry['entry_id'] in entries_to_save:
+                db.add_entry(entry)
+                ids_to_delete_from_vector_store.append(entry['entry_id'])
+                docs_to_add_to_vector_store.append(entry)
     
     updated_playbook, ids_to_prune = prune_playbook(updated_playbook)
 
@@ -275,8 +292,6 @@ async def retriever_playbook_node(state : State) -> State:
             "updated_at": meta.get("updated_at"),
             "last_used_at" : current_time
         })
-    
-    
     
     highlight_print(f"PLAYBOOK 벡터스토어에서 {len(retrieved)} 항목 검색됨", 'green')
     return {"retrieved_bullets" : retrieved}

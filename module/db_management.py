@@ -98,38 +98,30 @@ class VectorStore:
             
             # 임베딩 모델의 차원(dimension)을 확인합니다.
             try:
-                # HuggingFaceEmbeddings의 경우 .client에 실제 모델이 있을 수 있음
                 embedding_size = self.embedding_model._client.get_sentence_embedding_dimension()
             except AttributeError:
-                # 또는 _client (기존 코드 존중)
                 try:
                     embedding_size = self.embedding_model._client.get_sentence_embedding_dimension()
                 except AttributeError:
-                    # 그래도 실패하면, "test" 문자열을 임베딩하여 차원 추론
                     logger.warning("Could not find get_sentence_embedding_dimension(). Inferring size from dummy text.")
                     embedding_size = len(self.embedding_model.embed_query("test"))
 
-            # self.client (단일 인스턴스)를 사용하여 컬렉션 생성
             self.client.create_collection(
                 collection_name=self.db_name,
                 vectors_config=models.VectorParams(
                     size=embedding_size,
-                    distance=models.Distance.COSINE, # 또는 models.Distance.DOT 등 필요에 따라
+                    distance=models.Distance.COSINE,
                 )
             )
             if verbose:
                  logger.info(f"Collection '{self.db_name}' created at {self.db_path}")
 
-        # 3. LangChain 래퍼(wrapper) 생성
         vector_store = QdrantVectorStore(
             client=self.client,
             collection_name=self.db_name,
             embedding=self.embedding_model,
         )
 
-        # 4. [중요] from_documents(...) 대신 add_documents(...) 사용
-        # path= 인자를 넘기지 않으므로 새 클라이언트를 생성하려 시도하지 않아 런타임 오류가 발생하지 않습니다.
-        # 컬렉션이 있든 없든(방금 만들었든) 문서를 추가합니다.
         vector_store.add_documents(data)
 
         if verbose:
