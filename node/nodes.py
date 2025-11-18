@@ -12,6 +12,8 @@ from module.db_management import VectorStore, PlayBookDB, get_db_instance, get_v
 from config.getenv import GetEnv
 from utils import Logger, highlight_print
 
+# TODO : harmful count 도 제대로 체크되는지 확인, inference와 learning 을 내부적으로 나누기, db값과 벡터스토어값이 일치하는지 확인 등
+
 
 env = GetEnv()
 llm = gpt()
@@ -106,7 +108,8 @@ async def reflector_node(state : State) -> State:
 async def curator_node(state : State) -> State:
     logger.debug("CURATOR")
 
-    playbook_str = '\n'.join(f"[{entry['entry_id']}] {entry['content']}" for entry in state['playbook']) or ""
+    playbook_str = '\n'.join(f"[{entry['entry_id']}] {entry['content']}" for entry in state['playbook']) or "EMPTY PLAYBOOK"
+    highlight_print(playbook_str, 'cyan')
 
     reflection = state.get("reflection")
 
@@ -118,15 +121,13 @@ async def curator_node(state : State) -> State:
     # reasoning, operations 2개의 key값을 가진 JSON 반환
     new_insights = await curator_chain.ainvoke(inputs)
 
-    print(new_insights)
-
     operations = new_insights.get("operations", [])
     return {
         "new_insights" : operations
     }
 
 async def update_playbook_node(state : State) -> State:
-    # halpful, harmful count 누적안됨, 무조건 helpful이 1로 시작 -> 해결필요
+    # halpful, harmful count 누적안됨, 무조건 helpful이 1로 시작 -> 해결필요 -> curator에서 retrieved된 결과를 playbook에 전달하지 않아서 생긴 이슈였음
     logger.debug("PLAYBOOK DELTA UPDATE")
 
     updated_playbook = state['playbook'].copy()
@@ -136,14 +137,25 @@ async def update_playbook_node(state : State) -> State:
 
     # reflector 노드에서 반환되는 값, 여기에서 helpful과 harmful을 누적
     bullet_tags = state.get("reflection", {}).get("bullet_tags", [])
-    highlight_print(state.get("reflection"), 'cyan')
-    for tag_info in bullet_tags:
-        for entry in updated_playbook:
-            if entry['entry_id'] == tag_info['entry_id']:
-                if tag_info['tag'] == 'helpful' : entry['helpful_count'] += 1
-                elif tag_info['tag'] == 'harmful' : entry['harmful_count'] += 1
-                entry['last_used_at'] = current_step
 
+    for tag_info in bullet_tags:
+        target_id = str(tag_info.get("entry_id", '')).strip()
+        target_tag = tag_info.get("tag", "").lower()
+
+        for entry in updated_playbook:
+            current_id = str(entry['entry_id']).strip()
+
+            if current_id == target_id:
+                old_helpful = entry['helpful_count']
+
+                if target_tag == 'helpful':
+                    entry['helpful_count'] += 1
+                    highlight_print(f"✅ Helpful Count UP! [{current_id[:8]}] {old_helpful}->{entry['helpful_count']}", 'green')
+                elif target_tag == 'harmful':
+                    entry['harmful_count'] += 1
+                    highlight_print(f"❌ Harmful Count UP! [{current_id[:8]}]", 'red')
+                
+                entry['last_used_at'] = datetime.now()
                 entries_to_save.add(entry['entry_id'])
                 break
     
@@ -154,6 +166,8 @@ async def update_playbook_node(state : State) -> State:
     # curator 노드의 operations 부분에서 각각 type, category, content로 나눠짐
     for op in state.get("new_insights", []):
         op_type = op.get("type").upper()
+
+        highlight_print(op_type, 'cyan')
 
         if op_type == "ADD":
             new_id = str(uuid.uuid4())
@@ -177,20 +191,6 @@ async def update_playbook_node(state : State) -> State:
                 created_at=datetime.now(),
                 updated_at=datetime.now()
             )
-
-            # vector store 저장용 -> UPDATE 노드가 추가됨에 따라 리스트에 추가 -> 추후 벡터스토어에 추가
-            # doc = Document(
-            #     page_content=entry['content'],
-            #     metadata = {
-            #         "entry_id" : entry['entry_id'],
-            #         "category" : entry['category'],
-            #         "helpful_count" : entry['helpful_count'],
-            #         "harmful_count" : entry['harmful_count'],
-            #         "created_at" : entry['created_at'].isoformat(),
-            #         "updated_at" : entry['updated_at'].isoformat()
-            #     }
-            # )
-            # vector_store.to_disk([doc])
 
             # DB 저장용
             docs_to_add_to_vector_store.append(entry)
@@ -247,8 +247,8 @@ async def update_playbook_node(state : State) -> State:
                 "category" : entry['category'],
                 "helpful_count" : entry['helpful_count'],
                 "harmful_count" : entry['harmful_count'],
-                "created_at" : entry['created_at'].isoformat(),
-                "updated_at" : entry['updated_at'].isoformat()
+                "created_at" : entry['created_at'],
+                "updated_at" : entry['updated_at']
                     }
                 )
             docs.append(doc)
@@ -268,6 +268,7 @@ async def retriever_playbook_node(state : State) -> State:
     # 맨 처음 실행할때(벡터스토어가 존재하지 않을때) from_disk() 메서드를 실행하면 콜렉션을 못찾음
     vector_store_doc_count = vector_store.get_doc_count()
 
+    # 벡터스토어에서 찾은 retrieved 결과를 playbook으로 전달해줘야 curator가 보고 판단함
     if vector_store_doc_count == 0:
         return {"retrieved_bullets": []}
     
@@ -294,7 +295,10 @@ async def retriever_playbook_node(state : State) -> State:
         })
     
     highlight_print(f"PLAYBOOK 벡터스토어에서 {len(retrieved)} 항목 검색됨", 'green')
-    return {"retrieved_bullets" : retrieved}
+    return {
+        "retrieved_bullets" : retrieved,
+        "playbook" : retrieved
+        }
 
 
 

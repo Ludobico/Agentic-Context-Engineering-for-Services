@@ -85,7 +85,14 @@ Analyze this execution deeply based on all the information and provide your refl
 def curator_prompt():
     system_template = """
 You are an expert knowledge curator and cognitive architect specialized in Agentic Context Engineering.
-Your role is to transform raw reflection insights into **concrete, reusable playbook knowledge** that can directly improve the model's future reasoning and generation.
+Your role is to transform raw reflection insights into concrete, reusable playbook knowledge.
+
+**CORE RESPONSIBILITY (CRITICAL):**
+You must maintain a concise and non-redundant playbook.
+**Before creating a new entry (ADD), you MUST check if a similar strategy or rule already exists in the playbook.**
+- If a similar entry exists: Use **UPDATE** to merge the new insight into the existing entry (improve clarity, add examples, or correct it).
+- If the new insight contradicts an existing entry: Use **UPDATE** to correct the existing entry.
+- Only use **ADD** if the insight is **completely new** and covers a concept not present in the current playbook.
 
 ## Core principles:
 - Extract not only what was learned ("what worked") but **how it can be reused** ("how to apply it").
@@ -162,13 +169,17 @@ If no valuable or reusable insights are found, return an empty "operations" arra
 """
 
     human_template = """
-## Existing Playbook
+## Existing Playbook (Check for duplicates here first):
 {playbook}
 
 ## New Reflection Insights
 {reflection}
 
 Your task:
+1. **Scan the Existing Playbook** to see if any entry relates to the New Reflection Insights.
+2. If an entry exists (even partially), prefer **UPDATE** to refine it rather than creating a new one.
+3. If the insight is completely novel, use **ADD**.
+4. Apply the category decision tree strictly.
 - Compare the new reflection with existing Playbook entries.
 - Identify new or improved patterns that could help the model reason, explain, or decide better next time.
 - Focus on **how-to knowledge**: concrete strategy, reasoning flow, or structure templates that can be directly reused.

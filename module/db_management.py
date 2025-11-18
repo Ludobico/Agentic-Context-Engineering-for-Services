@@ -22,6 +22,12 @@ logger = Logger(__name__)
 _db_instance = None
 _vector_store_instance = None
 
+def ensure_datetime(v):
+    if isinstance(v, datetime):
+        return v
+    if isinstance(v, str):
+        return datetime.fromisoformat(v)
+
 class VectorStore:
     """
     Manages a Qdrant vector store for document embeddings.
@@ -243,9 +249,9 @@ class PlayBookDB:
             content = entry['content'],
             helpful_count = entry['helpful_count'],
             harmful_count = entry['harmful_count'],
-            created_at = entry['created_at'],
-            updated_at = entry['updated_at'],
-            last_used_at = entry.get('last_used_at')
+            created_at = ensure_datetime(entry['created_at']),
+            updated_at = ensure_datetime(entry['updated_at']),
+            last_used_at = ensure_datetime(entry.get('last_used_at'))
         ).prefix_with("OR REPLACE")
 
         with self.engine.begin() as conn:
