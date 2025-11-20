@@ -4,8 +4,8 @@ import uuid
 from datetime import datetime
 import asyncio
 
-from module.prompt import curator_prompt, evaluator_prompt, generator_prompt, reflector_prompt
-from node.node_utils import SolutionOnlyStreamCallback, StrictJsonOutputParser, prune_playbook, is_duplicate_entry
+from module.prompt import curator_prompt, evaluator_prompt, generator_prompt, reflector_prompt, query_rewrite_prompt
+from node.node_utils import SolutionOnlyStreamCallback, StrictJsonOutputParser, prune_playbook, is_duplicate_entry, run_human_eval_test
 from core import State, PlaybookEntry
 from module.LLMs import gpt
 from module.db_management import VectorStore, PlayBookDB, get_db_instance, get_vector_store_instance
@@ -25,6 +25,7 @@ generator_chain = generator_prompt() | llm | json_parser
 evaluator_chain = evaluator_prompt() | llm | json_parser
 reflector_chain = reflector_prompt() | llm | json_parser
 curator_chain = curator_prompt() | llm | json_parser
+rewrite_chain = query_rewrite_prompt() | llm | StrOutputParser()
 
 # DB
 vector_store = get_vector_store_instance()
@@ -61,13 +62,26 @@ async def evaluator_node(state : State) -> State:
     query = state.get("query")
     solution = state.get("solution")
 
-    inputs = {
-        "query" : query,
-        "solution" : solution
-    }
+    if state.get("test_code") and state.get("entry_point"):
+        test_code = state.get("test_code")
+        entry_point = state.get("entry_point")
+        
+        is_sucess, message = run_human_eval_test(solution, test_code, entry_point)
+        rating = "positive" if is_sucess else "negative"
 
-    # rating 과 comment 형식의 feedback
-    feedback = await evaluator_chain.ainvoke(inputs)
+        feedback = {
+            "rating": rating,
+            "comment": f"Execution Result: {rating.upper()}.\nDetails: {message}"
+        }
+
+    else:
+        inputs = {
+            "query" : query,
+            "solution" : solution
+        }
+
+        # rating 과 comment 형식의 feedback
+        feedback = await evaluator_chain.ainvoke(inputs)
 
     return {
         "feedback" : feedback
@@ -98,8 +112,6 @@ async def reflector_node(state : State) -> State:
     # root_cause, key_insight, bullet_tags 3개의 key 값을 가진 JSON 반환
     reflection = await reflector_chain.ainvoke(inputs)
 
-    highlight_print(reflection, 'magenta')
-
     return {
         "reflection" : reflection
     }
@@ -109,7 +121,6 @@ async def curator_node(state : State) -> State:
     logger.debug("CURATOR")
 
     playbook_str = '\n'.join(f"[{entry['entry_id']}] {entry['content']}" for entry in state['playbook']) or "EMPTY PLAYBOOK"
-    highlight_print(playbook_str, 'cyan')
 
     reflection = state.get("reflection")
 
@@ -131,7 +142,6 @@ async def update_playbook_node(state : State) -> State:
     logger.debug("PLAYBOOK DELTA UPDATE")
 
     updated_playbook = state['playbook'].copy()
-    current_step = state.get("current_step", 0)
 
     entries_to_save = set()
 
@@ -166,8 +176,6 @@ async def update_playbook_node(state : State) -> State:
     # curator 노드의 operations 부분에서 각각 type, category, content로 나눠짐
     for op in state.get("new_insights", []):
         op_type = op.get("type").upper()
-
-        highlight_print(op_type, 'cyan')
 
         if op_type == "ADD":
             new_id = str(uuid.uuid4())
@@ -260,17 +268,26 @@ async def retriever_playbook_node(state : State) -> State:
     logger.debug("PLAYBOOK RETRIEVER")
 
     query = state.get("query")
+    rewritten_query = await rewrite_chain.ainvoke({"query" : query})
     top_k = int(env.get_playbook_config['RETRIEVAL_TOP_K'])
     threshold = float(state.get("retrieval_threshold", env.get_playbook_config['RETRIEVAL_THRESHOLD']))
 
-    query_embedding = embedding_model.embed_query(query)
+    
+
+    if state.get("verbose", False):
+        highlight_print(rewritten_query, 'blue')
+
+    query_embedding = embedding_model.embed_query(rewritten_query)
 
     # 맨 처음 실행할때(벡터스토어가 존재하지 않을때) from_disk() 메서드를 실행하면 콜렉션을 못찾음
     vector_store_doc_count = vector_store.get_doc_count()
 
     # 벡터스토어에서 찾은 retrieved 결과를 playbook으로 전달해줘야 curator가 보고 판단함
     if vector_store_doc_count == 0:
-        return {"retrieved_bullets": []}
+        return {
+            "retrieved_bullets": [],
+            "playbook" : []
+            }
     
     retriever = vector_store.from_disk()
     docs = retriever.similarity_search_by_vector(
@@ -294,7 +311,9 @@ async def retriever_playbook_node(state : State) -> State:
             "last_used_at" : current_time
         })
     
-    highlight_print(f"PLAYBOOK 벡터스토어에서 {len(retrieved)} 항목 검색됨", 'green')
+    if state.get("verbose", False):
+        highlight_print(f"PLAYBOOK 벡터스토어에서 {len(retrieved)} 항목 검색됨", 'green')
+
     return {
         "retrieved_bullets" : retrieved,
         "playbook" : retrieved

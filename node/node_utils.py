@@ -190,3 +190,19 @@ def is_duplicate_entry(
         )
 
         return bool(similar_docs)
+
+def run_human_eval_test(
+        generated_code : str,
+        test_code : str,
+        entry_point : str
+):
+    full_code = f"{generated_code}\n\n{test_code}\n\ncheck({entry_point})"
+
+    try:
+        exec_globals = {}
+        exec(full_code, exec_globals)
+        return True, "All unit tests passed successfully."
+    except AssertionError:
+        return False, "Unit tests failed."
+    except Exception as e:
+        return False, f"An error occurred: {e}"

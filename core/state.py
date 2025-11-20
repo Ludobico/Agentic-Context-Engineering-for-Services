@@ -29,11 +29,12 @@ class State(TypedDict):
     new_insights : Optional[list[dict]]
     feedback : Optional[dict]
 
-    # playnook management
-    current_step : int
-
     max_playbook_size : int
     dedup_threshold : float
     retrieval_threshold : float
+
+    # evaluation state
+    test_code : str
+    entry_point : str
 
     
