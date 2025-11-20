@@ -92,17 +92,14 @@ class VectorStore:
         If the store does not exist, create a new one.
         """
         try:
-            # 1. 컬렉션이 존재하는지 확인
             self.client.get_collection(self.db_name)
             if verbose:
                 logger.debug(f"Appending documents to existing Qdrant collection: {self.db_name}")
 
-        except Exception: # ValueError 또는 qdrant_client.http.exceptions.UnexpectedResponse 등
-            # 2. 컬렉션이 없으면 새로 생성
+        except Exception:
             if verbose:
                 logger.debug(f"Creating new Qdrant collection: {self.db_name} at {self.db_path}")
             
-            # 임베딩 모델의 차원(dimension)을 확인합니다.
             try:
                 embedding_size = self.embedding_model._client.get_sentence_embedding_dimension()
             except AttributeError:
@@ -296,17 +293,43 @@ def get_vector_store_instance() -> VectorStore:
         _vector_store_instance = VectorStore(use_gpu=True)
     return _vector_store_instance
 
+def verify_vectorstore_db_sync(verbose: bool = True) -> bool:
+    db = get_db_instance()
+    vector_store = get_vector_store_instance()
+
+    db_entries = db.get_all_entries()
+    vs_entries = vector_store.get_all_entries()
+
+    vs_dict = {e['metadata']['entry_id']: e for e in vs_entries if 'metadata' in e and 'entry_id' in e['metadata']}
+    all_match = True
+
+    for entry in db_entries:
+        entry_id = entry['entry_id']
+        if entry_id not in vs_dict:
+            all_match = False
+            if verbose:
+                print(f"[MISSING IN VECTORSTORE] entry_id: {entry_id}")
+            continue
+
+        vs_entry = vs_dict[entry_id]
+        fields_to_check = ['category', 'helpful_count', 'harmful_count']
+
+        for field in fields_to_check:
+            db_value = entry.get(field)
+            vs_value = vs_entry.get(field)
+
+            if db_value != vs_value:
+                all_match = False
+                if verbose:
+                    print(f"[MISMATCH] entry_id: {entry_id}, field: {field}, DB: {db_value}, VS: {vs_value}")
+
+    if all_match and verbose:
+        print("All entries match between DB and VectorStore.")
+    elif verbose:
+        print("Some entries do not match.")
+
+    return all_match
+
+
 if __name__ == "__main__":
-    db = PlayBookDB()
-
-    entry = {
-        "entry_id": "pbk_001",
-        "category": "motivation",
-        "content": "Focus and be consistent.",
-        "helpful_count": 5,
-        "harmful_count": 0,
-        "created_at": datetime.now(),
-        "updated_at": datetime.now(),
-    }
-
-    db.add_entry(entry)
+    verify_vectorstore_db_sync()

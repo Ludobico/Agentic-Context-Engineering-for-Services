@@ -240,7 +240,7 @@ async def update_playbook_node(state : State) -> State:
     all_entries_in_db = db.get_all_entries()
     max_playbook_size = state.get("max_playbook_size")
 
-    _, ids_to_prune = prune_playbook(all_entries_in_db, max_playbook_size)
+    _, ids_to_prune = prune_playbook(all_entries_in_db, int(max_playbook_size))
 
     if ids_to_prune:
         if state.get("verbose", False):
