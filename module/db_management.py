@@ -300,7 +300,8 @@ def verify_vectorstore_db_sync(verbose: bool = True) -> bool:
     db_entries = db.get_all_entries()
     vs_entries = vector_store.get_all_entries()
 
-    vs_dict = {e['metadata']['entry_id']: e for e in vs_entries if 'metadata' in e and 'entry_id' in e['metadata']}
+    vs_dict = {e['metadata']['entry_id']: e for e in vs_entries if 'metadata' in e}
+
     all_match = True
 
     for entry in db_entries:
@@ -311,7 +312,7 @@ def verify_vectorstore_db_sync(verbose: bool = True) -> bool:
                 print(f"[MISSING IN VECTORSTORE] entry_id: {entry_id}")
             continue
 
-        vs_entry = vs_dict[entry_id]
+        vs_entry = vs_dict[entry_id]['metadata']
         fields_to_check = ['category', 'helpful_count', 'harmful_count']
 
         for field in fields_to_check:

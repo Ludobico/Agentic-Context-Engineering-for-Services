@@ -38,10 +38,10 @@ async def main():
     csv_path = os.path.join(env.get_log_dir, 'human_eval_metrics.csv')
     with open(csv_path, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(["task_id", "is_success", "playbook_size", "retrieved_count", "helpful_count_in_retrieved"])
+        writer.writerow(["entry_point", "is_success", "playbook_size", "retrieved_count", "helpful_count_in_retrieved"])
 
     for i, item in enumerate(test_samples):
-        task_id = item['task_id']
+        entry_point = item['entry_point']
         raw_prompt = item['prompt']
         query = f"complete the follwing task \n\n {raw_prompt}"
 
@@ -65,13 +65,13 @@ async def main():
 
         is_success = 1 if result['feedback']['rating'] == 'positive' else 0
         total_playbook_size = len(db.get_all_entries())
-        retrieved_count = len(state.get('retrieved_bullets', []))
-        helpful_hits = sum(1 for tag in state.get('reflection', {}).get('bullet_tags', []) if tag['tag'] == 'helpful')
+        retrieved_count = len(result.get('retrieved_bullets', []))
+        helpful_hits = sum(1 for tag in result.get('reflection', {}).get('bullet_tags', []) if tag['tag'] == 'helpful')
 
         with open(csv_path, 'a', newline='') as f:
             writer = csv.writer(f)
-            writer.writerow([task_id, is_success, total_playbook_size, retrieved_count, helpful_hits])
-            logger.info(f"task_id: {task_id}, is_success: {is_success}, playbook_size: {total_playbook_size}, retrieved_count: {retrieved_count}, helpful_hits: {helpful_hits}")
+            writer.writerow([entry_point, is_success, total_playbook_size, retrieved_count, helpful_hits])
+            logger.info(f"task_id: {entry_point}, is_success: {is_success}, playbook_size: {total_playbook_size}, retrieved_count: {retrieved_count}, helpful_hits: {helpful_hits}")
 
 if __name__ == "__main__":
     asyncio.run(main())

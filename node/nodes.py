@@ -12,7 +12,7 @@ from module.db_management import VectorStore, PlayBookDB, get_db_instance, get_v
 from config.getenv import GetEnv
 from utils import Logger, highlight_print
 
-# TODO : inference와 learning 을 내부적으로 나누기, db값과 벡터스토어값이 일치하는지 확인 등
+# TODO : inference와 learning 을 내부적으로 나누기, vector store, db 삭제하는 함수(테스트용)
 
 
 env = GetEnv()

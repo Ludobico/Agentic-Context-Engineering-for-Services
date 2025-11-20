@@ -73,7 +73,7 @@ class StrictJsonOutputParser(JsonOutputParser):
         return text
     
     def _parse_direct(self, text : str) -> dict[str, Any]:
-        return json.loads()
+        return json.loads(text)
     
     def _parse_code_block(self, text : str) -> dict[str, Any]:
         patterns = [
