@@ -104,6 +104,7 @@ async def main():
         print(f"\n==== 🧠 STEP {i}: {q} ====\n")
         state["current_step"] = i
         state = await run_query(inference_graph, state, q)
+        
 
 if __name__ == "__main__":
     asyncio.run(main())
