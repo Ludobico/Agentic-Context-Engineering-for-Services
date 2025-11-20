@@ -6,15 +6,18 @@ from datasets import load_dataset
 from config.getenv import GetEnv
 from graph.inference_graph import create_inference_graph
 from utils import Logger
+from module.db_management import get_db_instance
 
 env = GetEnv()
 logger = Logger(__name__)
 
 async def main():
+    db = get_db_instance()
+
     repo_id = "openai/openai_humaneval"
     dataset = load_dataset(repo_id, split='test')
 
-    test_samples = dataset.select(range(10))
+    test_samples = dataset.select(range(20))
 
     inference_graph = create_inference_graph()
 
@@ -61,14 +64,14 @@ async def main():
         result = await inference_graph.ainvoke(state)
 
         is_success = 1 if result['feedback']['rating'] == 'positive' else 0
-        playbook_size = len(state['playbook'])
+        total_playbook_size = len(db.get_all_entries())
         retrieved_count = len(state.get('retrieved_bullets', []))
         helpful_hits = sum(1 for tag in state.get('reflection', {}).get('bullet_tags', []) if tag['tag'] == 'helpful')
 
         with open(csv_path, 'a', newline='') as f:
             writer = csv.writer(f)
-            writer.writerow([task_id, is_success, playbook_size, retrieved_count, helpful_hits])
-            logger.info(f"task_id: {task_id}, is_success: {is_success}, playbook_size: {playbook_size}, retrieved_count: {retrieved_count}, helpful_hits: {helpful_hits}")
+            writer.writerow([task_id, is_success, total_playbook_size, retrieved_count, helpful_hits])
+            logger.info(f"task_id: {task_id}, is_success: {is_success}, playbook_size: {total_playbook_size}, retrieved_count: {retrieved_count}, helpful_hits: {helpful_hits}")
 
 if __name__ == "__main__":
     asyncio.run(main())

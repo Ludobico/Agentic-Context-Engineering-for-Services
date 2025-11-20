@@ -56,7 +56,7 @@ async def main():
     # 초기 state
     state = {
         "query": "",
-        "playbook": [],   # ✅ 한 번만 초기화하고 이후 계속 갱신됨
+        "playbook": [],
         "solution": "",
         "verbose": True,
         "retrieved_bullets": [],

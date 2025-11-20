@@ -1,6 +1,7 @@
 import tiktoken
 import re
 import json
+from datetime import datetime
 from typing import Any, Optional
 from langchain_core.callbacks import AsyncCallbackHandler
 from langchain_core.output_parsers import JsonOutputParser
@@ -151,19 +152,47 @@ class StrictJsonOutputParser(JsonOutputParser):
         except:
             return None
 
-def prune_playbook(playbook : PlaybookEntry) -> PlaybookEntry:
+def prune_playbook(playbook : PlaybookEntry, max_size : int) -> tuple[list[PlaybookEntry], list[str]]:
     """
-    Prunes the playbook by removing entries where `harmful_count` > `helpful_count`
+    Prunes the playbook based on two criteria:
+    1. Quality: Remove entries where harmful_count > helpful_count (Poisoned knowledge)
+    2. Capacity: If size > max_size, remove entries with lowest value (LRU & Low Utility)
     """
-    ids_to_prune = []
+    ids_to_prune = set()
+    kept_entries = []
 
+    clean_entries = []
     for entry in playbook:
-        if entry.get("harmful_count", 0) > entry.get("helpful_count", 0):
-            ids_to_prune.append(entry['entry_id'])
-        
-    pruned_playbook = [entry for entry in playbook if entry['entry_id'] not in ids_to_prune]
+        h_count = entry.get("helpful_count", 0)
+        harm_count = entry.get("harmful_count", 0)
 
-    return pruned_playbook, ids_to_prune
+        if harm_count > h_count:
+            ids_to_prune.add(entry['entry_id'])
+        else:
+            clean_entries.append(entry)
+    
+    current_size = len(clean_entries)
+
+    if current_size > max_size:
+        excess_count = current_size - max_size
+
+        clean_entries.sort(
+            key=lambda x : (
+                x.get("helpful_count", 0),
+                x.get("last_used_at", datetime.min),
+            )
+        )
+
+        entries_to_remove = clean_entries[:excess_count]
+        kept_entries = clean_entries[excess_count:]
+
+        for entry in entries_to_remove:
+            ids_to_prune.add(entry['entry_id'])
+    
+    else:
+        kept_entries = clean_entries
+
+    return kept_entries, list(ids_to_prune)
 
 def is_duplicate_entry(
         content : str,

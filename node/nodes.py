@@ -12,7 +12,7 @@ from module.db_management import VectorStore, PlayBookDB, get_db_instance, get_v
 from config.getenv import GetEnv
 from utils import Logger, highlight_print
 
-# TODO : harmful count 도 제대로 체크되는지 확인, inference와 learning 을 내부적으로 나누기, db값과 벡터스토어값이 일치하는지 확인 등
+# TODO : inference와 learning 을 내부적으로 나누기, db값과 벡터스토어값이 일치하는지 확인 등
 
 
 env = GetEnv()
@@ -142,6 +142,7 @@ async def update_playbook_node(state : State) -> State:
     logger.debug("PLAYBOOK DELTA UPDATE")
 
     updated_playbook = state['playbook'].copy()
+    max_playbook_size = state.get("max_playbook_size")
 
     entries_to_save = set()
 
@@ -160,10 +161,12 @@ async def update_playbook_node(state : State) -> State:
 
                 if target_tag == 'helpful':
                     entry['helpful_count'] += 1
-                    highlight_print(f"✅ Helpful Count UP! [{current_id[:8]}] {old_helpful}->{entry['helpful_count']}", 'green')
+                    if state.get("verbose", False):
+                        highlight_print(f"✅ Helpful Count UP! [{current_id[:8]}] {old_helpful}->{entry['helpful_count']}", 'green')
                 elif target_tag == 'harmful':
                     entry['harmful_count'] += 1
-                    highlight_print(f"❌ Harmful Count UP! [{current_id[:8]}]", 'red')
+                    if state.get("verbose", False):
+                        highlight_print(f"❌ Harmful Count UP! [{current_id[:8]}]", 'red')
                 
                 entry['last_used_at'] = datetime.now()
                 entries_to_save.add(entry['entry_id'])
@@ -193,8 +196,7 @@ async def update_playbook_node(state : State) -> State:
                 entry_id=new_id,
                 category=category,
                 content=content,
-                # curator에서 ADD로 판단하므로 결과가 helpful 하다고 판단(가정)
-                helpful_count=1,
+                helpful_count=1, # curator에서 ADD로 판단하므로 결과가 helpful 하다고 판단(가정)
                 harmful_count=0,
                 created_at=datetime.now(),
                 updated_at=datetime.now()
@@ -233,12 +235,19 @@ async def update_playbook_node(state : State) -> State:
                 db.add_entry(entry)
                 ids_to_delete_from_vector_store.append(entry['entry_id'])
                 docs_to_add_to_vector_store.append(entry)
-    
-    updated_playbook, ids_to_prune = prune_playbook(updated_playbook)
+
+    # prune
+    all_entries_in_db = db.get_all_entries()
+    max_playbook_size = state.get("max_playbook_size")
+
+    _, ids_to_prune = prune_playbook(all_entries_in_db, max_playbook_size)
 
     if ids_to_prune:
-        logger.debug(f"Pruning {len(ids_to_prune)} entries")
+        if state.get("verbose", False):
+            logger.debug(f"Pruning {len(ids_to_prune)} entries...")
+        
         ids_to_delete_from_vector_store.extend(ids_to_prune)
+
         for entry_id in ids_to_prune:
             db.delete_entry(entry_id)
 
