@@ -81,4 +81,10 @@ class GetEnv:
         vector_store_path = os.path.join(self.get_vector_store_dir, vector_store_name)
         return vector_store_path
     
+    @property
+    def get_log_dir(self):
+        log_dir = os.path.join(self.curdir, '..', 'logs')
+        self._ensure_dir(log_dir)
+        return log_dir
+    
     
