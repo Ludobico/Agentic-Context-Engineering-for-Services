@@ -35,7 +35,8 @@ class State(TypedDict):
     retrieval_topk : int
 
     # evaluation state
-    test_code : str
-    entry_point : str
+    test_code : NotRequired[str]
+    test_id : NotRequired[str]
+    ground_truth : NotRequired[str]
 
     

@@ -10,16 +10,24 @@ from module.db_management import get_db_instance
 
 env = GetEnv()
 logger = Logger(__name__)
-save_logger = Logger(f"{__name__}_save", save_to_file=True, log_dir=env.get_log_dir, log_file="human_eval_config.log", console_output=False)
+save_logger = Logger(f"{__name__}_save", save_to_file=True, log_dir=env.get_log_dir, log_file="hotpot_config.log", console_output=False)
 
-async def main():
+def format_hotpot_context(context_list):
+    formatted_text = ""
+    titles = context_list['title']
+    sentences = context_list['sentences']
+    
+    for title, sent_list in zip(titles, sentences):
+        formatted_text += f"Title: {title}\n"
+        formatted_text += "".join(sent_list) + "\n\n"
+    return formatted_text
+
+async def main(num_sample : int = 200):
     db = get_db_instance()
 
-    repo_id = "openai/openai_humaneval"
-    dataset = load_dataset(repo_id, split='test')
-
-    # test_samples = dataset.select(range(20))
-    test_samples = dataset
+    repo_id = "hotpotqa/hotpot_qa"
+    dataset = load_dataset(repo_id, "distractor",  split="train")
+    samples = dataset.select(range(num_sample))
 
     inference_graph = create_inference_graph()
 
@@ -33,33 +41,45 @@ async def main():
         "retrieval_threshold": env.get_eval_config["RETRIEVAL_THRESHOLD"],
         "retrieval_topk" : env.get_eval_config['RETRIEVAL_TOP_K'],
         
-        # HumanEval용 필드 (TypedDict에 추가 필요할 수 있음, 없으면 무시되거나 dict로 동작)
-        "test_code": "",
-        "entry_point": ""
+        # HotpotQA용
+        "ground_truth" : ""
     }
 
-    csv_path = os.path.join(env.get_log_dir, 'human_eval_metrics.csv')
+    csv_path = os.path.join(env.get_log_dir, 'hotpotqa_metrics.csv')
     with open(csv_path, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(["entry_point", "is_success", "playbook_size", "retrieved_count", "helpful_count_in_retrieved"])
+        # entry_point 대신 id 사용
+        writer.writerow(["id", "is_success", "playbook_size", "retrieved_count", "helpful_count_in_retrieved"])
 
     save_logger.debug(f"max_playbook_size : {env.get_eval_config["MAX_PLAYBOOK_SIZE"]}")
     save_logger.debug(f"dedup_threshold : {env.get_eval_config["DEDUP_THRESHOLD"]}")
     save_logger.debug(f"retrieval_threshold : {env.get_eval_config["RETRIEVAL_THRESHOLD"]}")
     save_logger.debug(f"retrieval_topk : {env.get_eval_config["RETRIEVAL_TOP_K"]}")
+    save_logger.debug(f"dataset sample : {num_sample}")
 
-    for i, item in enumerate(test_samples):
-        entry_point = item['entry_point']
-        raw_prompt = item['prompt']
-        query = f"complete the follwing task \n\n {raw_prompt}"
+    
+    for i, item in enumerate(samples):
+        task_id = item['id']
+        question = item['question']
+        answer = item['answer']
+        context_text = format_hotpot_context(item['context'])
+        query = f"""Answer the question based on the context below.
 
-        test_code = item['test']
-        entry_point = item['entry_point']
+[Context]
+{context_text}
 
+[Question]
+{question}"""
+        
+        # State 주입
         state['query'] = query
-        state['test_code'] = test_code
-        state['entry_point'] = entry_point
+        state['ground_truth'] = answer
+        
+        # 다른 태스크 필드는 비워줌 (충돌 방지)
+        state['test_code'] = ""
+        state['entry_point'] = ""
 
+        # 실행 상태 초기화
         state["solution"] = ""
         state["retrieved_bullets"] = []
         state["used_bullet_ids"] = []
@@ -76,11 +96,12 @@ async def main():
         retrieved_count = len(result.get('retrieved_bullets', []))
         helpful_hits = sum(1 for tag in result.get('reflection', {}).get('bullet_tags', []) if tag['tag'] == 'helpful')
 
+        # CSV 저장
         with open(csv_path, 'a', newline='') as f:
             writer = csv.writer(f)
-            writer.writerow([entry_point, is_success, total_playbook_size, retrieved_count, helpful_hits])
-            logger.info(f"task_id: {entry_point}, is_success: {is_success}, playbook_size: {total_playbook_size}, retrieved_count: {retrieved_count}, helpful_hits: {helpful_hits}")
+            writer.writerow([task_id, is_success, total_playbook_size, retrieved_count, helpful_hits])
+            
+        logger.info(f"Task: {task_id} | Success: {is_success} | DB: {total_playbook_size} | Retrieved: {retrieved_count}")
 
 if __name__ == "__main__":
     asyncio.run(main())
-

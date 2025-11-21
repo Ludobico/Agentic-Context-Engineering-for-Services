@@ -39,12 +39,12 @@ class GetEnv:
         return language_code
     
     @property
-    def get_playbook_config(self):
+    def get_eval_config(self):
         playbook_config = self.props[self.PLAYBOOK_SECTION]
         return playbook_config
     
     @property
-    def get_playbook_config(self):
+    def get_eval_config(self):
         eval_config = self.props[self.EVAL_SECTION]
         return eval_config
     

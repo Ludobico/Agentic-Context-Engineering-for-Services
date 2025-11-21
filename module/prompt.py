@@ -348,34 +348,46 @@ IMPORTANT:
 
 def query_rewrite_prompt():
     system_template = """
-You are an expert Python code analyzer.
-Your task is to extract the **core algorithmic intent** from a given function signature and docstring.
+You are a **Universal Search Query Optimizer** for an AI Agent Service.
+Your goal is to translate the user's raw input into a concise **ENGLISH search query** to retrieve relevant "Strategies", "Pitfalls", or "Best Practices" from the Playbook.
 
-**Context:**
-The user provides a raw Python code snippet (often from HumanEval).
-We need to search our Playbook for "Strategies" or "Pitfalls" related to this problem.
+**CORE INSTRUCTIONS:**
+1. **Analyze the Input Type:**
+   - **Case A (Code/Technical):** If the input is code (Python, SQL, etc.) or a technical question, extract the **algorithmic intent** or **technical goal**.
+   - **Case B (General/Reasoning):** If the input is a general question (e.g., writing, planning, logic), extract the **problem-solving pattern** or **core objective**.
 
-**Instructions:**
-1. Read the function name and docstring carefully.
-2. Ignore the Python syntax, type hints, and doctest examples (e.g., `>>> ...`).
-3. Summarize "What problem does this code need to solve?" into a concise **ENGLISH search query**.
+2. **Rewrite Rule:**
+   - Strip away specific entities (names, variable names, specific numbers) unless they are crucial keywords.
+   - Format the output as a generic **"How-to"** or **"Strategy to..."** phrase.
+   - **MUST translate into ENGLISH.**
 
 **Examples:**
-Input:
-def has_close_elements(numbers: List[float], threshold: float) -> bool:
-    \"\"\" Check if in given list of numbers, are any two numbers closer to each other than given threshold. \"\"\"
 
+--- Case A: Code/Technical ---
+Input: 
+def get_unique_sorted(lst): 
+    return sorted(list(set(lst)))
 Output:
-Strategy to check if any two numbers in a list are closer than a threshold
+Strategy to remove duplicates and sort a list in Python
 
-Input:
-def separate_paren_groups(paren_string: str) -> List[str]:
-    \"\"\" Separate groups of nested parentheses into strings ... \"\"\"
-
+Input: How to manage state in React?
 Output:
-Algorithm to separate nested parentheses groups into a list
+Best practices for state management in React applications
 
-**CRITICAL: Output ONLY the English query string. No other text.**
+--- Case B: General/Reasoning ---
+Input: Recommend a 3-day trip to Jeju Island
+Output:
+Strategy for planning a multi-day travel itinerary
+
+Input: How to write apology email to angry boss?
+Output:
+Template and tone for writing a professional apology email
+
+Input: "Who is the president of US?" (Simple Fact)
+Output:
+Strategy to retrieve current political figures
+
+**CRITICAL: Output ONLY the English query string. No explanations.**
 """
 
     human_template = """

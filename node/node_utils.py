@@ -206,7 +206,7 @@ def is_duplicate_entry(
         threshold : Optional[float] = None
     ) -> bool:
     if threshold is None:
-        threshold = float(env.get_playbook_config['DEDUP_THRESHOLD'])
+        threshold = float(env.get_eval_config['DEDUP_THRESHOLD'])
     
     if embedding_model is None:
         embedding_model = VectorStore.get_embedding_model
@@ -228,9 +228,9 @@ def is_duplicate_entry(
 def run_human_eval_test(
         generated_code : str,
         test_code : str,
-        entry_point : str
+        test_id : str
 ):
-    full_code = f"{generated_code}\n\n{test_code}\n\ncheck({entry_point})"
+    full_code = f"{generated_code}\n\n{test_code}\n\ncheck({test_id})"
 
     try:
         exec_globals = {}
@@ -240,3 +240,21 @@ def run_human_eval_test(
         return False, "Unit tests failed."
     except Exception as e:
         return False, f"An error occurred: {e}"
+    
+def run_hotpot_eval_test(
+        generated_answer : str,
+        ground_truth : str
+) -> tuple[bool, str]:
+    if not generated_answer:
+        return False, "Generated answer is empty."
+    
+    gen_norm = str(generated_answer).lower().strip()
+    truth_norm = str(ground_truth).lower().strip()
+
+    if gen_norm == truth_norm:
+        return True, f"Exact Match! Answer '{ground_truth}' found."
+    
+    if truth_norm in gen_norm:
+        return True, f"Partial Match! Answer '{ground_truth}' found in response."
+        
+    return False, f"Mismatch. Expected '{ground_truth}', but got '{generated_answer}'."

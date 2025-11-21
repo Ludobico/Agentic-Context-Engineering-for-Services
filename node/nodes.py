@@ -5,7 +5,7 @@ from datetime import datetime
 import asyncio
 
 from module.prompt import curator_prompt, evaluator_prompt, generator_prompt, reflector_prompt, query_rewrite_prompt
-from node.node_utils import SolutionOnlyStreamCallback, StrictJsonOutputParser, prune_playbook, is_duplicate_entry, run_human_eval_test
+from node.node_utils import SolutionOnlyStreamCallback, StrictJsonOutputParser, prune_playbook, is_duplicate_entry, run_human_eval_test, run_hotpot_eval_test
 from core import State, PlaybookEntry
 from module.LLMs import gpt
 from module.db_management import VectorStore, PlayBookDB, get_db_instance, get_vector_store_instance
@@ -64,17 +64,29 @@ async def evaluator_node(state : State) -> State:
     query = state.get("query")
     solution = state.get("solution")
 
-    # for evaluation
-    if state.get("test_code") and state.get("entry_point"):
+    # A. HumanEval (Code Execution)
+    if state.get("test_code") and state.get("test_id"):
         test_code = state.get("test_code")
-        entry_point = state.get("entry_point")
+        test_id = state.get("test_id")
         
-        is_sucess, message = run_human_eval_test(solution, test_code, entry_point)
-        rating = "positive" if is_sucess else "negative"
+        is_success, message = run_human_eval_test(solution, test_code, test_id)
+        rating = "positive" if is_success else "negative"
 
         feedback = {
             "rating": rating,
             "comment": f"Execution Result: {rating.upper()}.\nDetails: {message}"
+        }
+
+    # B. HotpotQA (Text Matching)
+    elif state.get("ground_truth"):
+        ground_truth = state.get("ground_truth")
+
+        is_success, message = run_hotpot_eval_test(solution, ground_truth)
+        rating = "positive" if is_success else "negative"
+
+        feedback = {
+            "rating": rating,
+            "comment": f"Evaluation Result: {rating.upper()}.\nDetails: {message}"
         }
 
     # for normal
@@ -282,8 +294,8 @@ async def retriever_playbook_node(state : State) -> State:
 
     query = state.get("query")
     rewritten_query = await rewrite_chain.ainvoke({"query" : query})
-    top_k = int(state.get("retrieval_topk", env.get_playbook_config['RETRIEVAL_TOP_K']))
-    threshold = float(state.get("retrieval_threshold", env.get_playbook_config['RETRIEVAL_THRESHOLD']))
+    top_k = int(state.get("retrieval_topk", env.get_eval_config['RETRIEVAL_TOP_K']))
+    threshold = float(state.get("retrieval_threshold", env.get_eval_config['RETRIEVAL_THRESHOLD']))
 
     
 

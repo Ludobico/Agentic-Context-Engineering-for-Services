@@ -70,6 +70,45 @@ def plot_dashboard(df : pd.DataFrame, dataset_name : str, output_path : Union[os
     plt.savefig(output_path, dpi=300)
     highlight_print(f"Graph Saved: {output_path}", 'green')
 
+def plot_internal_impact(csv_path : Union[os.PathLike, str], dataset_name : str, output_dir : Union[os.PathLike, str]):
+    df = pd.read_csv(csv_path)
+
+    group_helpful = df[df['helpful_count_in_retrieved'] > 0]
+    group_neutral = df[df['helpful_count_in_retrieved'] == 0]
+
+    success_helpful = group_helpful['is_success'].mean() * 100
+    success_neutral = group_neutral['is_success'].mean() * 100
+
+    plt.figure(figsize=(8, 6))
+    categories = ['ACE (Low Utility)\n(Helpful=0)', 'ACE (High Utility)\n(Helpful>0)']
+    values = [success_neutral, success_helpful]
+    colors = ['#95a5a6', '#3498db']
+
+    bars = plt.bar(categories, values, color=colors, width=0.5, edgecolor='black', linewidth=1)
+    for bar in bars:
+        height = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2., height + 1,
+                 f'{height:.1f}%',
+                 ha='center', va='bottom', fontsize=15, fontweight='bold')
+        
+    plt.text(0, success_neutral/2, f"N={len(group_neutral)}", ha='center', color='white', fontweight='bold')
+    plt.text(1, success_helpful/2, f"N={len(group_helpful)}", ha='center', color='white', fontweight='bold')
+
+    gap = success_helpful - success_neutral
+    plt.annotate(f"+{gap:.1f}%p Boost", 
+                 xy=(0.5, (success_helpful + success_neutral)/2), 
+                 ha='center', fontsize=12, color='red', fontweight='bold',
+                 bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="red", alpha=0.8))
+
+    plt.ylabel('Success Rate (%)', fontsize=12)
+    plt.title('Impact of Retrieved Knowledge Quality', fontsize=14, fontweight='bold')
+    plt.ylim(0, 100)
+    plt.grid(axis='y', linestyle='--', alpha=0.3)
+    
+    output_path = os.path.join(output_dir, dataset_name)
+    plt.savefig(output_path, dpi=300)
+    highlight_print(f"Graph Saved: {output_path}", 'green')
+
 def main(csv_path : Union[os.PathLike, str],
          dataset_name : Optional[str] = None,
          output_dir : Optional[Union[os.PathLike, str]] = None):
@@ -79,12 +118,14 @@ def main(csv_path : Union[os.PathLike, str],
 
     if dataset_name is None:
         dataset_name = os.path.basename(csv_path).split('.')[0] + '.png'
+        dataset_name_impact = os.path.basename(csv_path).split('.')[0] + '_impact' + '.png'
     if output_dir is None:
         output_dir = env.get_figures_dir
     
     output_path = os.path.join(output_dir, dataset_name)
     
     plot_dashboard(df, dataset_name, output_path)
+    plot_internal_impact(csv_path, dataset_name_impact, output_dir)
 
 if __name__ == "__main__":
     target = os.path.join(env.get_log_dir, 'human_eval_metrics.csv')
