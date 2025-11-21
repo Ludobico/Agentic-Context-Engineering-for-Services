@@ -62,6 +62,7 @@ async def evaluator_node(state : State) -> State:
     query = state.get("query")
     solution = state.get("solution")
 
+    # for evaluation
     if state.get("test_code") and state.get("entry_point"):
         test_code = state.get("test_code")
         entry_point = state.get("entry_point")
@@ -74,6 +75,7 @@ async def evaluator_node(state : State) -> State:
             "comment": f"Execution Result: {rating.upper()}.\nDetails: {message}"
         }
 
+    # for normal
     else:
         inputs = {
             "query" : query,
@@ -278,7 +280,7 @@ async def retriever_playbook_node(state : State) -> State:
 
     query = state.get("query")
     rewritten_query = await rewrite_chain.ainvoke({"query" : query})
-    top_k = int(env.get_playbook_config['RETRIEVAL_TOP_K'])
+    top_k = int(state.get("retrieval_topk", env.get_playbook_config['RETRIEVAL_TOP_K']))
     threshold = float(state.get("retrieval_threshold", env.get_playbook_config['RETRIEVAL_THRESHOLD']))
 
     

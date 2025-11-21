@@ -179,7 +179,7 @@ def prune_playbook(playbook : PlaybookEntry, max_size : int) -> tuple[list[Playb
         clean_entries.sort(
             key=lambda x : (
                 x.get("helpful_count", 0),
-                x.get("last_used_at", datetime.min),
+                x.get("last_used_at") or datetime.min,
             )
         )
 

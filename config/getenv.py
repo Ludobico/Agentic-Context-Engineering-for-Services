@@ -44,7 +44,7 @@ class GetEnv:
         return playbook_config
     
     @property
-    def get_eval_config(self):
+    def get_playbook_config(self):
         eval_config = self.props[self.EVAL_SECTION]
         return eval_config
     

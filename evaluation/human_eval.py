@@ -18,7 +18,8 @@ async def main():
     repo_id = "openai/openai_humaneval"
     dataset = load_dataset(repo_id, split='test')
 
-    test_samples = dataset.select(range(20))
+    # test_samples = dataset.select(range(20))
+    test_samples = dataset
 
     inference_graph = create_inference_graph()
 
@@ -30,6 +31,7 @@ async def main():
         "max_playbook_size": env.get_playbook_config["MAX_PLAYBOOK_SIZE"],
         "dedup_threshold": env.get_playbook_config["DEDUP_THRESHOLD"],
         "retrieval_threshold": env.get_playbook_config["RETRIEVAL_THRESHOLD"],
+        "retrieval_topk" : env.get_playbook_config['RETRIEVAL_TOP_K'],
         
         # HumanEval용 필드 (TypedDict에 추가 필요할 수 있음, 없으면 무시되거나 dict로 동작)
         "test_code": "",
@@ -41,6 +43,10 @@ async def main():
         writer = csv.writer(f)
         writer.writerow(["entry_point", "is_success", "playbook_size", "retrieved_count", "helpful_count_in_retrieved"])
 
+    save_logger.debug(f"max_playbook_size : {env.get_playbook_config["MAX_PLAYBOOK_SIZE"]}")
+    save_logger.debug(f"dedup_threshold : {env.get_playbook_config["DEDUP_THRESHOLD"]}")
+    save_logger.debug(f"retrieval_threshold : {env.get_playbook_config["RETRIEVAL_THRESHOLD"]}")
+    save_logger.debug(f"retrieval_topk : {env.get_playbook_config["RETRIEVAL_TOP_K"]}")
     for i, item in enumerate(test_samples):
         entry_point = item['entry_point']
         raw_prompt = item['prompt']

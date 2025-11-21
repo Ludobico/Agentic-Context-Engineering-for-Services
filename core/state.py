@@ -32,6 +32,7 @@ class State(TypedDict):
     max_playbook_size : int
     dedup_threshold : float
     retrieval_threshold : float
+    retrieval_topk : int
 
     # evaluation state
     test_code : str
