@@ -10,6 +10,7 @@ from module.db_management import get_db_instance
 
 env = GetEnv()
 logger = Logger(__name__)
+save_logger = Logger(f"{__name__}_save", save_to_file=True, log_dir=env.get_log_dir, log_file="human_eval_config.log", console_output=False)
 
 async def main():
     db = get_db_instance()

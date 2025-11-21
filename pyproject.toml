@@ -31,7 +31,9 @@ dependencies = [
     "langchain-qdrant>=1.0.0",
     "langcodes>=3.5.0",
     "langgraph>=1.0.1",
+    "matplotlib>=3.10.7",
     "pytz>=2025.2",
+    "seaborn>=0.13.2",
     "sentence-transformers>=5.1.1",
     "sqlalchemy>=2.0.44",
 ]

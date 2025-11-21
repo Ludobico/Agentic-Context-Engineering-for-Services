@@ -16,6 +16,7 @@ class GetEnv:
         self.DEFAULT_SECTION = "DEFAULT"
         self.PLAYBOOK_SECTION = "PLAYBOOK"
         self.DATABASE_SECTION = "DATABASE"
+        self.EVAL_SECTION = "EVAL"
         self.props.read(self.config_path, encoding='utf-8')
 
     def _ensure_dir(self, path : Union[str, os.PathLike]):
@@ -41,6 +42,11 @@ class GetEnv:
     def get_playbook_config(self):
         playbook_config = self.props[self.PLAYBOOK_SECTION]
         return playbook_config
+    
+    @property
+    def get_eval_config(self):
+        eval_config = self.props[self.EVAL_SECTION]
+        return eval_config
     
     @property
     def get_database_config(self):
