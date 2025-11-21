@@ -44,9 +44,9 @@ class SolutionOnlyStreamCallback(AsyncCallbackHandler):
             self.solution_content += clean_token
 
 class StrictJsonOutputParser(JsonOutputParser):
-    def parse(self, text : str) -> dict[str, Any]:
-        cleand_text = self._preprocess(text)
-
+    def parse(self, text: str) -> dict[str, Any]:
+        cleaned_text = self._preprocess(text)
+        
         strategies = [
             self._parse_direct,
             self._parse_code_block,
@@ -54,17 +54,22 @@ class StrictJsonOutputParser(JsonOutputParser):
             self._parse_between_braces,
             self._parse_fix_common_errors
         ]
-
+        
         last_error = None
-
         for strategy in strategies:
             try:
-                result = strategy(cleand_text)
-                if result:
+                result = strategy(cleaned_text)
+                if result is not None:  # 명시적으로 None 체크
                     return result
             except Exception as e:
                 last_error = e
                 continue
+        
+        # 모든 전략 실패 시 명시적 에러 발생
+        raise ValueError(
+            f"Failed to parse JSON from text. Last error: {last_error}\n"
+            f"Text preview: {cleaned_text[:200]}..."
+        )
 
 
     def _preprocess(self, text : str) -> str:

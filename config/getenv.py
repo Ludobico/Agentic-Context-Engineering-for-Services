@@ -93,4 +93,14 @@ class GetEnv:
         self._ensure_dir(log_dir)
         return log_dir
     
+    @property
+    def get_eval_dir(self):
+        eval_dir = os.path.join(self.curdir, '..', 'evaluation')
+        self._ensure_dir(eval_dir)
+        return eval_dir
+    @property
+    def get_figures_dir(self):
+        figures_dir = os.path.join(self.get_eval_dir, 'figures')
+        self._ensure_dir(figures_dir)
+        return figures_dir
     

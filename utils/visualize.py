@@ -30,7 +30,7 @@ def calculate_metrics(df : pd.DataFrame):
     return df
 
 def plot_dashboard(df : pd.DataFrame, dataset_name : str, output_path : Union[os.PathLike, str]):
-    fig, axes = plt.subplot(3, 1, figsize=(12,15), sharex=True)
+    fig, axes = plt.subplots(3, 1, figsize=(12,15), sharex=True)
 
     sns.lineplot(data=df, x=df.index, y='cumulative_success', ax=axes[0], color="#1f77b4", label="Cumulative Accuracy", linewidth=2)
     sns.lineplot(data=df, x=df.index, y='rolling_success', ax=axes[0], color='#ff7f0e', linestyle='--', label='Moving Avg (Trend)', alpha=0.8)
@@ -39,9 +39,9 @@ def plot_dashboard(df : pd.DataFrame, dataset_name : str, output_path : Union[os
     axes[0].legend(loc='lower right')
     axes[0].grid(True, alpha=0.3)
 
-    sns.lineplot(data=df, x=df.index, y='total_playbook_size', ax=axes[1], color='#2ca02c', label='Total Knowledge Entries', linewidth=2)
+    sns.lineplot(data=df, x=df.index, y='playbook_size', ax=axes[1], color='#2ca02c', label='Total Knowledge Entries', linewidth=2)
 
-    max_size_detected = df['total_playbook_size'].max()
+    max_size_detected = df['playbook_size'].max()
     axes[1].axhline(y=max_size_detected, color='red', linestyle=':', alpha=0.5, label=f'Max Size Observed ({max_size_detected})')
     
     axes[1].set_ylabel('Playbook Size (Count)', fontsize=12)
@@ -80,9 +80,13 @@ def main(csv_path : Union[os.PathLike, str],
     if dataset_name is None:
         dataset_name = os.path.basename(csv_path).split('.')[0] + '.png'
     if output_dir is None:
-        output_dir = env.get_log_dir
+        output_dir = env.get_figures_dir
     
     output_path = os.path.join(output_dir, dataset_name)
     
     plot_dashboard(df, dataset_name, output_path)
+
+if __name__ == "__main__":
+    target = os.path.join(env.get_log_dir, 'human_eval_metrics.csv')
+    main(target)
 

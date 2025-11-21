@@ -47,6 +47,7 @@ async def main():
     save_logger.debug(f"dedup_threshold : {env.get_playbook_config["DEDUP_THRESHOLD"]}")
     save_logger.debug(f"retrieval_threshold : {env.get_playbook_config["RETRIEVAL_THRESHOLD"]}")
     save_logger.debug(f"retrieval_topk : {env.get_playbook_config["RETRIEVAL_TOP_K"]}")
+    
     for i, item in enumerate(test_samples):
         entry_point = item['entry_point']
         raw_prompt = item['prompt']

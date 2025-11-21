@@ -45,13 +45,15 @@ async def generator_node(state : State) -> State:
     generation = await generator_chain.ainvoke(inputs)
 
     solution = generation.get("solution", "")
+    rationale = generation.get("rationale", "")
+    trajectory_content = f"## Rationale (Thought Process):\n{rationale}\n\n## Solution (Code):\n{solution}"
 
     # [uuid-123, uuid-456] 같은 playbook의 entry_id 값
     used_id = generation.get("used_bullet_ids", [])
 
     return {
         "solution" : solution,
-        "trajectory" : [solution],
+        "trajectory" : [trajectory_content],
         "used_bullet_ids" : used_id
     }
 
