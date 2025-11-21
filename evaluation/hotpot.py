@@ -10,7 +10,7 @@ from module.db_management import get_db_instance
 
 env = GetEnv()
 logger = Logger(__name__)
-save_logger = Logger(f"{__name__}_save", save_to_file=True, log_dir=env.get_log_dir, log_file="hotpot_config.log", console_output=False)
+save_logger = Logger(f"{__name__}_save", save_to_file=True, log_dir=env.get_log_dir, log_file="hotpotqa_config.log", console_output=False)
 
 def format_hotpot_context(context_list):
     formatted_text = ""

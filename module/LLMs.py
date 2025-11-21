@@ -14,5 +14,5 @@ def gpt(temperature : float = 0.1, model : str = 'gpt-4o-mini', streaming : bool
     Returns:
         ChatOpenAI: The fine-tuned chat model.
     """
-    llm = ChatOpenAI(temperature=temperature, api_key=openai_api_key, model=model, streaming=streaming, **kwargs)
+    llm = ChatOpenAI(temperature=temperature, api_key=openai_api_key, model=model, streaming=streaming, max_retries=10, **kwargs)
     return llm
