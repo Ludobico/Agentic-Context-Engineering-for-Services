@@ -11,7 +11,6 @@ class PlaybookEntry(TypedDict):
     # timestamp
     created_at : datetime
     updated_at : datetime
-    # python 3.11 에서 NotRequired 가 사용되며, 키값 자체가 존재하지 않을수도있음을 의미
     last_used_at : NotRequired[datetime]
 
 class State(TypedDict):

@@ -7,7 +7,7 @@ from config.getenv import GetEnv
 from core.state import State
 from node.nodes import generator_node, evaluator_node, reflector_node, curator_node, retriever_playbook_node, update_playbook_node
 
-def create_inference_graph():
+def create_serving_graph():
     builder = StateGraph(State)
 
     # Nodes

@@ -295,8 +295,8 @@ async def retriever_playbook_node(state : State) -> State:
 
     query = state.get("query")
     rewritten_query = await rewrite_chain.ainvoke({"query" : query})
-    top_k = int(state.get("retrieval_topk", env.get_eval_config['RETRIEVAL_TOP_K']))
-    threshold = float(state.get("retrieval_threshold", env.get_eval_config['RETRIEVAL_THRESHOLD']))
+    top_k = int(state.get("retrieval_topk", env.get_playbook_config['RETRIEVAL_TOP_K']))
+    threshold = float(state.get("retrieval_threshold", env.get_playbook_config['RETRIEVAL_THRESHOLD']))
 
     
 

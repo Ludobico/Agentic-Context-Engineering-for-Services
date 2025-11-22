@@ -57,10 +57,10 @@ async def main():
         "new_insights": [],
         "feedback": {},
         "current_step": 0,
-        "max_playbook_size": env.get_eval_config["MAX_PLAYBOOK_SIZE"],
-        "dedup_threshold": env.get_eval_config["DEDUP_THRESHOLD"],
-        "retrieval_threshold": env.get_eval_config["RETRIEVAL_THRESHOLD"],
-        "retrieval_topk" : env.get_eval_config['RETRIEVAL_TOP_K']
+        "max_playbook_size": env.get_playbook_config["MAX_PLAYBOOK_SIZE"],
+        "dedup_threshold": env.get_playbook_config["DEDUP_THRESHOLD"],
+        "retrieval_threshold": env.get_playbook_config["RETRIEVAL_THRESHOLD"],
+        "retrieval_topk" : env.get_playbook_config['RETRIEVAL_TOP_K']
     }
 
     queries = [

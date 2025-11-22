@@ -231,7 +231,7 @@ def is_duplicate_entry(
         threshold : Optional[float] = None
     ) -> bool:
     if threshold is None:
-        threshold = float(env.get_eval_config['DEDUP_THRESHOLD'])
+        threshold = float(env.get_playbook_config['DEDUP_THRESHOLD'])
     
     if embedding_model is None:
         embedding_model = VectorStore.get_embedding_model

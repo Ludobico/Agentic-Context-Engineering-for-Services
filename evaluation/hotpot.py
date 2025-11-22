@@ -37,10 +37,10 @@ async def main(num_sample : int = 200):
         "retrieved_bullets": [],
         
         # Config
-        "max_playbook_size": env.get_eval_config["MAX_PLAYBOOK_SIZE"],
-        "dedup_threshold": env.get_eval_config["DEDUP_THRESHOLD"],
-        "retrieval_threshold": env.get_eval_config["RETRIEVAL_THRESHOLD"],
-        "retrieval_topk" : env.get_eval_config['RETRIEVAL_TOP_K'],
+        "max_playbook_size": env.get_playbook_config["MAX_PLAYBOOK_SIZE"],
+        "dedup_threshold": env.get_playbook_config["DEDUP_THRESHOLD"],
+        "retrieval_threshold": env.get_playbook_config["RETRIEVAL_THRESHOLD"],
+        "retrieval_topk" : env.get_playbook_config['RETRIEVAL_TOP_K'],
         
         # HotpotQA용
         "ground_truth" : ""
@@ -52,10 +52,10 @@ async def main(num_sample : int = 200):
         # entry_point 대신 id 사용
         writer.writerow(["id", "is_success", "playbook_size", "retrieved_count", "helpful_count_in_retrieved"])
 
-    save_logger.debug(f"max_playbook_size : {env.get_eval_config["MAX_PLAYBOOK_SIZE"]}")
-    save_logger.debug(f"dedup_threshold : {env.get_eval_config["DEDUP_THRESHOLD"]}")
-    save_logger.debug(f"retrieval_threshold : {env.get_eval_config["RETRIEVAL_THRESHOLD"]}")
-    save_logger.debug(f"retrieval_topk : {env.get_eval_config["RETRIEVAL_TOP_K"]}")
+    save_logger.debug(f"max_playbook_size : {env.get_playbook_config["MAX_PLAYBOOK_SIZE"]}")
+    save_logger.debug(f"dedup_threshold : {env.get_playbook_config["DEDUP_THRESHOLD"]}")
+    save_logger.debug(f"retrieval_threshold : {env.get_playbook_config["RETRIEVAL_THRESHOLD"]}")
+    save_logger.debug(f"retrieval_topk : {env.get_playbook_config["RETRIEVAL_TOP_K"]}")
     save_logger.debug(f"dataset sample : {num_sample}")
 
     
