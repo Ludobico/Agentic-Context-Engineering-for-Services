@@ -299,8 +299,8 @@ async def retriever_playbook_node(state : State) -> State:
 
     
 
-    if state.get("verbose", False):
-        highlight_print(rewritten_query, 'blue')
+    # if state.get("verbose", False):
+    #     highlight_print(rewritten_query, 'blue')
 
     query_embedding = embedding_model.embed_query(rewritten_query)
 

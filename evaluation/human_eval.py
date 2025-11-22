@@ -4,7 +4,7 @@ import csv
 
 from datasets import load_dataset
 from config.getenv import GetEnv
-from graph.inference_graph import create_inference_graph
+from graph.full_graph import create_full_graph
 from utils import Logger
 from module.db_management import get_db_instance
 
@@ -21,7 +21,7 @@ async def main():
     # test_samples = dataset.select(range(20))
     test_samples = dataset
 
-    inference_graph = create_inference_graph()
+    inference_graph = create_full_graph()
 
     state = {
         "playbook": [], 

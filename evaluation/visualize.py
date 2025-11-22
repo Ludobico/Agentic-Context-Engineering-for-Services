@@ -128,6 +128,6 @@ def main(csv_path : Union[os.PathLike, str],
     plot_internal_impact(csv_path, dataset_name_impact, output_dir)
 
 if __name__ == "__main__":
-    target = os.path.join(env.get_log_dir, 'human_eval_metrics.csv')
+    target = os.path.join(env.get_log_dir, 'hotpotqa_metrics.csv')
     main(target)
 

@@ -4,7 +4,7 @@ import csv
 
 from datasets import load_dataset
 from config.getenv import GetEnv
-from graph.inference_graph import create_inference_graph
+from graph.full_graph import create_full_graph
 from utils import Logger
 from module.db_management import get_db_instance
 
@@ -27,9 +27,10 @@ async def main(num_sample : int = 200):
 
     repo_id = "hotpotqa/hotpot_qa"
     dataset = load_dataset(repo_id, "distractor",  split="train")
-    samples = dataset.select(range(num_sample))
+    # samples = dataset.select(range(num_sample))
+    samples = dataset.select(range(136, 200))
 
-    inference_graph = create_inference_graph()
+    inference_graph = create_full_graph()
 
     state = {
         "playbook": [], 
@@ -46,7 +47,7 @@ async def main(num_sample : int = 200):
     }
 
     csv_path = os.path.join(env.get_log_dir, 'hotpotqa_metrics.csv')
-    with open(csv_path, 'w', newline='') as f:
+    with open(csv_path, 'a', newline='') as f:
         writer = csv.writer(f)
         # entry_point 대신 id 사용
         writer.writerow(["id", "is_success", "playbook_size", "retrieved_count", "helpful_count_in_retrieved"])
