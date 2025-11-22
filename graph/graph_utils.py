@@ -5,60 +5,90 @@ from langgraph.graph.state import CompiledStateGraph
 from PIL import Image
 import os
 import io
+import json
 
 from utils import highlight_print
 from config.getenv import GetEnv
 
 env = GetEnv()
 
-async def solution_stream(graph : "CompiledStateGraph", input_data, capture_container: dict[str, Any] = None) -> AsyncGenerator:
-    buffer = ""
-    # SEARCHING,STREAMING,DONE
+async def solution_stream(graph: "CompiledStateGraph", input_data, capture_container: dict[str, Any] = None) -> AsyncGenerator:
+    solution_buffer = ""
     state = "SEARCHING"
     is_escaped = False
 
-    async for event in graph.astream_events(input_data, version="v2"):
-        if event["event"] == "on_chain_end":
-            node_name = event.get("name")
-            # Retriever나 Generator가 뱉은 결과(Dict)를 캡처
-            if node_name in ["retriever", "generator"]:
-                if capture_container is not None:
-                    # 기존 컨테이너에 결과 병합 (retrieved_bullets, used_bullet_ids 등)
-                    capture_container.update(event["data"]["output"])
-
+    async for event in graph.astream_events(input_data, version='v2'):
+        # ✅ Generator 완료 시 모든 메타데이터 캡처
+        if event['event'] == 'on_chain_end' and event.get("name") == "generator":
+            if capture_container is not None:
+                output = event['data']['output']
+                capture_container['used_bullet_ids'] = output.get('used_bullet_ids', [])
+                capture_container['trajectory'] = output.get('trajectory', [])
+                
+                # Trajectory에서 rationale 추출
+                if output.get('trajectory'):
+                    trajectory_text = output['trajectory'][0]
+                    match = re.search(r'## Rationale \(Thought Process\):\n(.*?)\n\n## Solution', 
+                                    trajectory_text, re.DOTALL)
+                    if match:
+                        capture_container['rationale'] = match.group(1).strip()
+        
+        # Retriever 결과 캡처
+        if event['event'] == 'on_chain_end' and event.get("name") == "retriever":
+            if capture_container is not None:
+                output = event['data']['output']
+                if 'retrieved_bullets' in output:
+                    capture_container['retrieved_bullets'] = output['retrieved_bullets']
+        
+        # Solution만 스트리밍
         if event['event'] == "on_chat_model_stream":
             chunk = event['data']['chunk'].content
             if not chunk:
                 continue
 
+            # SEARCHING 상태에서 "solution": " 찾기
             if state == "SEARCHING":
-                buffer += chunk
-                # "solution": " 패턴 찾기
-                match = re.search(r'"solution"\s*:\s*"', buffer)
-
+                solution_buffer += chunk
+                match = re.search(r'"solution"\s*:\s*"', solution_buffer)
                 if match:
                     state = "STREAMING"
-                    remaining_chars = buffer[match.end():]
-                    chunk = remaining_chars
+                    solution_buffer = ""  # 리셋
+                    remaining = chunk[match.end() - len(chunk):]
+                    if remaining:
+                        chunk = remaining
+                    else:
+                        continue
                 else:
                     continue
-
+                    
             if state == "STREAMING":
                 for char in chunk:
-                    # 이스케이프 문자 처리 로직 (기존 유지)
                     if is_escaped:
-                        if char == 'n': yield '\n'
-                        elif char == 't': yield '\t'
-                        elif char in ['"', '\\', '/']: yield char
-                        else: yield f'\\{char}'
+                        if char == 'n': 
+                            solution_buffer += '\n'
+                            yield '\n'
+                        elif char == 't': 
+                            solution_buffer += '\t'
+                            yield '\t'
+                        elif char in ['"', '\\', '/']: 
+                            solution_buffer += char
+                            yield char
+                        else: 
+                            solution_buffer += f'\\{char}'
+                            yield f'\\{char}'
                         is_escaped = False
                     elif char == '\\':
                         is_escaped = True
                     elif char == '"':
                         state = "DONE"
-                        break # for loop break
+                        break
                     else:
+                        solution_buffer += char
                         yield char
+    
+    # 최종 solution 저장
+    if capture_container is not None:
+        capture_container['solution'] = solution_buffer
 
 def graph_to_png(compiled_graph : "CompiledStateGraph", show_direct : bool = True):
     """
