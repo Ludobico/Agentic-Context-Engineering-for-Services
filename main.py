@@ -1,94 +1,78 @@
-import os
-import asyncio
-import shutil
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 
-from config.getenv import GetEnv
-from graph import create_learning_graph, create_serving_graph
+import asyncio
+import json
+
+from utils import Logger
+from core import State, ChatRequest
+from graph import create_serving_graph, create_learning_graph
 from graph.graph_utils import solution_stream
-from core.state import State
-from utils import highlight_print
+from module.db_management import get_db_instance, get_vector_store_instance
+from config.getenv import GetEnv
 
 env = GetEnv()
+logger = Logger(__name__)
 
-inference_graph = create_serving_graph()
-serving_graph = create_learning_graph()
+serving_graph = create_serving_graph()
+learning_graph = create_learning_graph()
 
-TEST_QUERIES = [
-    "파이썬에서 리스트를 역순으로 정렬하는 방법은?",
-    "자바스크립트에서 비동기 처리를 하는 async/await 예제 보여줘",
-    "SQL에서 중복된 행을 제거하는 쿼리는?",
-    "리액트 useEffect 훅의 사용법과 주의사항 알려줘"
-]
+app = FastAPI(title="ACE Framework API", version="1.0.0")
 
-async def run_ace_pipeline(state: State, task_id: int):
-    solution = ""
-    captured_data = {}
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-    print(f"\n💬 [To User-{task_id}]: ", end="")
-    
-    # [수정 1] inference_graph 대신 serving_graph 사용 (여기선 Generator까지만 실행)
-    async for token in solution_stream(inference_graph, state, captured_data):
-        print(token, end="", flush=True)
-        solution += token
-    
-    print("\n") # 줄바꿈
+async def run_background_learning(state : State):
+    await learning_graph.ainvoke(state)
 
-    # State 업데이트
-    state.update(captured_data)
-    state['solution'] = solution
-
-    # [수정 2] 백그라운드 학습 시작 (Non-blocking)
-    print(f"📚 [System-{task_id}] Background Learning Started...")
-    asyncio.create_task(run_background_learning(state, task_id))
-    
-    return solution
-
-async def run_background_learning(state_from_inference: State, task_id: int):
-    try:
-        # 실제 학습 그래프 실행 (Evaluator -> ... -> Update)
-        await serving_graph.ainvoke(state_from_inference)
-        print(f"✅ [System-{task_id}] Learning Completed & DB Updated!")
-    except Exception as e:
-        print(f"⚠️ [System-{task_id}] Learning Failed: {e}")
-
-async def main():
-    # 공통 State 설정
-    base_config = {
-        "playbook": [], 
-        "retrieved_bullets": [],
+@app.post("/chat/stream")
+async def chat_stream(request : ChatRequest):
+    initial_state = {
+        "query" : request.query,
+        "playbook" : [],
+        "solution" : "",
+        "verbose" : False,
+        "retrieved_bullets" : [],
+        "used_bullet_ids" : [],
+        "trajectory" : [],
+        "reflection" : {},
+        "new_insights" : [],
+        "feedback" : {},
         "max_playbook_size": env.get_playbook_config["MAX_PLAYBOOK_SIZE"],
         "dedup_threshold": env.get_playbook_config["DEDUP_THRESHOLD"],
         "retrieval_threshold": env.get_playbook_config["RETRIEVAL_THRESHOLD"],
         "retrieval_topk": env.get_playbook_config['RETRIEVAL_TOP_K'],
-        # 테스트용 빈 값들
-        "test_code": "", "entry_point": "", "ground_truth": ""
     }
 
-    print("=== 🚀 Async ACE Pipeline Test Started ===")
+    async def event_generator():
+        full_solution = ""
+        # results of Retriever -> Generator
+        captured_data = {}
 
-    # [수정 3] 여러 질문을 연속으로 던짐
-    for i, query in enumerate(TEST_QUERIES):
-        # 각 질문마다 새로운 State 생성
-        state = base_config.copy()
-        state['query'] = query
-        state['verbose'] = False # 로그 너무 많으면 헷갈리니까 끔
+        async for token in solution_stream(serving_graph, initial_state, captured_data):
+            # SSE format
+            payload = json.dumps({"token" : token}, ensure_ascii=False)
+            yield f"data: {payload}\n\n"
 
-        # 파이프라인 실행 (답변만 받고 즉시 리턴됨)
-        await run_ace_pipeline(state, i+1)
-        
-        # 사용자가 다음 질문 하기 전 딜레이 (1초)
-        # 이 사이에 백그라운드 로그가 끼어드는지 보세요!
-        await asyncio.sleep(1)
+            full_solution += token
 
-    print("\n=== 🛑 All user queries finished. Waiting for background tasks... ===")
-    
-    # [수정 4] 메인 스레드 생존 유지 (이게 없으면 백그라운드 작업이 강제 종료됨)
-    # 실제 서버에서는 필요 없지만, 테스트 스크립트에서는 필수!
-    for _ in range(15):
-        print(".", end="", flush=True)
-        await asyncio.sleep(1)
-    
-    print("\n=== Test Finished ===")
+        result_state = initial_state.copy()
+        result_state.update(captured_data)
+        result_state['solution'] = full_solution
+
+        asyncio.create_task(run_background_learning(result_state))
+
+        # openAI format
+        yield "data : [DONE]\n\n"
+
+    return StreamingResponse(event_generator(), media_type='text/event-stream')
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    uvicorn.run("main:app", host='0.0.0.0', port=8000, reload=False)
