@@ -62,6 +62,10 @@ class GetEnv:
         return database_config
     
     @property
+    def get_vector_store_gpu(self):
+        return self.props.getboolean(self.DATABASE_SECTION, 'USE_GPU')
+    
+    @property
     def get_db_dir(self):
         db_dir = os.path.join(self.curdir, '..', self.get_database_config['SQLITE_DB_DIR'])
         self._ensure_dir(db_dir)

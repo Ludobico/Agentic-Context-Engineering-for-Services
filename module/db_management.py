@@ -290,7 +290,7 @@ def get_db_instance() -> PlayBookDB:
 def get_vector_store_instance() -> VectorStore:
     global _vector_store_instance
     if _vector_store_instance is None:
-        _vector_store_instance = VectorStore(use_gpu=True)
+        _vector_store_instance = VectorStore(use_gpu=env.get_vector_store_gpu)
     return _vector_store_instance
 
 def verify_vectorstore_db_sync(verbose: bool = True) -> bool:
