@@ -17,6 +17,7 @@ class GetEnv:
         self.PLAYBOOK_SECTION = "PLAYBOOK"
         self.DATABASE_SECTION = "DATABASE"
         self.MEMORY_SECTION = "MEMORY"
+        self.WEB_SECTION = "WEB"
         self.EVAL_SECTION = "EVAL"
         self.props.read(self.config_path, encoding='utf-8')
 
@@ -48,6 +49,11 @@ class GetEnv:
     def get_memory_config(self):
         memory_config = self.props[self.MEMORY_SECTION]
         return memory_config
+    
+    @property
+    def get_web_config(self):
+        web_config = self.props[self.WEB_SECTION]
+        return web_config
     
     @property
     def get_eval_config(self):

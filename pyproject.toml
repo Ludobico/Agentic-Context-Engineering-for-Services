@@ -38,5 +38,6 @@ dependencies = [
     "seaborn>=0.13.2",
     "sentence-transformers>=5.1.1",
     "sqlalchemy>=2.0.44",
+    "streamlit>=1.51.0",
     "uvicorn>=0.38.0",
 ]
