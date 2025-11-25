@@ -4,7 +4,14 @@ import uuid
 from datetime import datetime
 import asyncio
 
-from module.prompt import curator_prompt, evaluator_prompt, generator_prompt, reflector_prompt, query_rewrite_prompt
+from module.prompt import (curator_prompt,
+                           evaluator_prompt,
+                           generator_prompt,
+                           reflector_prompt,
+                           query_rewrite_prompt,
+                           routing_prompt,
+                           simple_prompt
+                           )
 from node.node_utils import SolutionOnlyStreamCallback, StrictJsonOutputParser, prune_playbook, is_duplicate_entry, run_human_eval_test, run_hotpot_eval_test
 from core import State, PlaybookEntry
 from module.LLMs import gpt
@@ -26,6 +33,8 @@ evaluator_chain = evaluator_prompt() | llm | json_parser
 reflector_chain = reflector_prompt() | llm | json_parser
 curator_chain = curator_prompt() | llm | json_parser
 rewrite_chain = query_rewrite_prompt() | llm | StrOutputParser()
+router_chain = routing_prompt() | llm | json_parser
+simple_chain = simple_prompt() | llm | StrOutputParser()
 
 # DB
 vector_store = get_vector_store_instance()
@@ -346,7 +355,27 @@ async def retriever_playbook_node(state : State) -> State:
         }
 
 
+async def router_node(state : State) -> State:
+    logger.debug("ROUTER")
 
+    query = state.get("query")
+
+    result = await router_chain.ainvoke({"query" : query})
+    route = result.get("route", "complex")
+    highlight_print(route, 'blue')
+
+    return {"router_decision" : route}
+
+async def simple_generator_node(state : State) -> State:
+    logger.debug("SIMPLE GENERATOR")
+
+    query = state.get("query")
+
+    solution = await simple_chain.ainvoke({"query" : query})
+
+    return {
+        "solution" : solution
+    }
 
 
 

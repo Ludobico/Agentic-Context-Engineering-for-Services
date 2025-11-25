@@ -400,3 +400,78 @@ Strategy to retrieve current political figures
     ]
     prompt = ChatPromptTemplate(messages=messages)
     return prompt
+
+def routing_prompt():
+    system_template = """
+You are a generic query router. Your job is to classify the user's query into one of two categories to determine the optimal processing path.
+
+### Categories:
+
+**1. SIMPLE (Direct Response)**
+- **Definition:** Queries that can be answered directly by general knowledge, simple logic, or chitchat without needing external strategies or complex reasoning.
+- **Examples:**
+    - "Hi, how are you?" (Chitchat)
+    - "What is 1 + 1?" (Simple Math)
+    - "Why are eagle beaks yellow?" (General Knowledge/Fact)
+    - "Translate 'Hello' to Korean." (Simple Task)
+    - "Who is the president of USA?" (Fact)
+
+**2. COMPLEX (ACE Framework)**
+- **Definition:** Queries that involve problem-solving, coding, planning, logical reasoning, or specific "how-to" methods where a strategic playbook would be beneficial.
+- **Examples:**
+    - "How do I sort a list in Python efficiently?" (Coding Strategy)
+    - "Write a blog post about AI." (Creative Planning)
+    - "Solve this logic puzzle..." (Reasoning)
+    - "My React code is throwing an error..." (Debugging)
+    - "Plan a 3-day trip to Seoul." (Planning)
+
+### Critical Instruction:
+Analyze the query and respond with a JSON object containing a single key "route" with value "simple" or "complex".
+
+**Output Format:**
+{{"route": "simple"}} 
+or 
+{{"route": "complex"}}
+"""
+    human_template = "{query}"
+
+    messages = [
+    SystemMessagePromptTemplate.from_template(system_template),
+    HumanMessagePromptTemplate.from_template(human_template)
+    ]
+    prompt = ChatPromptTemplate(messages=messages)
+
+    return prompt
+
+def simple_prompt():
+    system_template = """
+You are a helpful AI assistant designed to provide clear, concise, and accurate responses to straightforward queries.
+
+### Your Role:
+- Answer questions directly using your knowledge base
+- Provide brief, focused responses without unnecessary elaboration
+- Be conversational and friendly for chitchat
+- Handle simple calculations, translations, and factual queries efficiently
+
+### Important Notes:
+- If you realize the query actually requires deeper analysis, complex reasoning, or multi-step planning, acknowledge this and suggest that a more detailed approach might be helpful
+- Stay within your knowledge cutoff and admit when you're unsure
+- For time-sensitive information, mention that details may have changed
+
+**CRITICAL: You must respond in {language}.**
+
+You MUST respond with a valid JSON object.
+{{
+  "solution": "Your answer here"
+}}
+"""
+
+    human_template = "{query}"
+
+    messages = [
+    SystemMessagePromptTemplate.from_template(system_template, partial_variables= {"language" : language}),
+    HumanMessagePromptTemplate.from_template(human_template)
+    ]
+    prompt = ChatPromptTemplate(messages=messages)
+
+    return prompt

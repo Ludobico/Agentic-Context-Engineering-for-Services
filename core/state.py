@@ -18,7 +18,9 @@ class State(TypedDict):
     playbook : list[PlaybookEntry]
     solution : Optional[str]
     verbose : Optional[bool]
+    router_decision : str
 
+    # playbook retrieve
     retrieved_bullets : list[PlaybookEntry]
     used_bullet_ids : list[str]
 

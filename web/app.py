@@ -6,7 +6,7 @@ import time
 from config.getenv import GetEnv
 
 env = GetEnv()
-port = env.get_web_config['BACKEND_PORT']
+port = env.get_backend_config['BACKEND_PORT']
 
 st.set_page_config(
     page_title="ACE Framework",

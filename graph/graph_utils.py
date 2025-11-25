@@ -18,20 +18,35 @@ async def solution_stream(graph: "CompiledStateGraph", input_data, capture_conta
     is_escaped = False
 
     async for event in graph.astream_events(input_data, version='v2'):
-        # ✅ Generator 완료 시 모든 메타데이터 캡처
-        if event['event'] == 'on_chain_end' and event.get("name") == "generator":
-            if capture_container is not None:
-                output = event['data']['output']
-                capture_container['used_bullet_ids'] = output.get('used_bullet_ids', [])
-                capture_container['trajectory'] = output.get('trajectory', [])
-                
-                # Trajectory에서 rationale 추출
-                if output.get('trajectory'):
-                    trajectory_text = output['trajectory'][0]
-                    match = re.search(r'## Rationale \(Thought Process\):\n(.*?)\n\n## Solution', 
-                                    trajectory_text, re.DOTALL)
-                    if match:
-                        capture_container['rationale'] = match.group(1).strip()
+        # Generator 완료 시 모든 메타데이터 캡처
+        if event["event"] == "on_chain_end":
+            data = event.get("data", {})
+            output = data.get("output")
+            
+            if isinstance(output, dict):
+                if capture_container is not None:
+                    if "router_decision" in output:
+                        capture_container["router_decision"] = output["router_decision"]
+                    
+                    if "retrieved_bullets" in output:
+                        capture_container["retrieved_bullets"] = output["retrieved_bullets"]
+                        if "playbook" in output: # playbook도 같이 업데이트
+                            capture_container["playbook"] = output["playbook"]
+                    
+                    if "used_bullet_ids" in output:
+                        capture_container["used_bullet_ids"] = output["used_bullet_ids"]
+                        # Simple Generator일 경우 trajectory가 없을 수 있으므로 get 사용
+                        if output["trajectory"] and isinstance(output["trajectory"], list):
+                            trajectory_text = output['trajectory'][0]
+                            # 정규표현식으로 rationale 추출
+                            match = re.search(r'## Rationale \(Thought Process\):\n(.*?)\n\n## Solution', 
+                                            trajectory_text, re.DOTALL)
+                            if match:
+                                capture_container['rationale'] = match.group(1).strip()
+
+                    # used_bullet_ids는 별도로 체크 (Simple 모드 등 Trajectory와 독립적일 수 있음)
+                    if "used_bullet_ids" in output:
+                        capture_container["used_bullet_ids"] = output["used_bullet_ids"]
         
         # Retriever 결과 캡처
         if event['event'] == 'on_chain_end' and event.get("name") == "retriever":

@@ -12,6 +12,7 @@ from graph import create_serving_graph, create_learning_graph
 from graph.graph_utils import solution_stream
 from module.db_management import get_db_instance, get_vector_store_instance
 from config.getenv import GetEnv
+from utils import highlight_print
 
 env = GetEnv()
 logger = Logger(__name__)
@@ -39,6 +40,7 @@ async def chat_stream(request : ChatRequest):
         "playbook" : [],
         "solution" : "",
         "verbose" : False,
+        "router_decision" : "",
         "retrieved_bullets" : [],
         "used_bullet_ids" : [],
         "trajectory" : [],
@@ -67,7 +69,11 @@ async def chat_stream(request : ChatRequest):
         result_state.update(captured_data)
         result_state['solution'] = full_solution
 
-        asyncio.create_task(run_background_learning(result_state))
+        route = result_state.get("router_decision", "complex")
+        highlight_print(route, 'green')
+
+        if route == 'complex':
+            asyncio.create_task(run_background_learning(result_state))
 
         # openAI format
         yield "data : [DONE]\n\n"
