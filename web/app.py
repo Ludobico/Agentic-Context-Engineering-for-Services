@@ -21,12 +21,51 @@ st.caption("Retrieval → Generation (Serving) | Evaluation → Reflector → Cu
 
 # sidebar
 with st.sidebar:
-    st.header("System Status")
-    st.info("Serving Graph : Active")
-    st.info("Learning Graph : Background")
+    st.header("Model Settings")
 
+    valid_providers = {}
+
+    if env.get_openai_api_key and env.get_openai_api_key.strip():
+        valid_providers['OpenAI'] = 'openai'
+    
+    if env.get_claude_api_key and env.get_claude_api_key.strip():
+        valid_providers["Anthropic"] = "anthropic"
+
+    if env.get_gemini_api_key and env.get_gemini_api_key.strip():
+        valid_providers["Google"] = "google"
+    
+    if not valid_providers:
+        st.error("No active API Keys found")
+        st.warning("Please set at least one API Key in `config.ini`")
+    
+    selected_provider_label = st.selectbox(
+        "Provider",
+        options=list(valid_providers.keys()),
+        index=0
+    )
+
+    provider_id = valid_providers[selected_provider_label]
+
+    model_options = []
+    if provider_id == 'openai':
+        model_options = [env.get_openai_model]
+    
+    elif provider_id == "anthropic":
+        model_options = [env.get_claude_model]
+    
+    elif provider_id == "google":
+        model_options = [env.get_gemini_model]
+
+    selected_model = st.selectbox(
+        "Model",
+        options=model_options,
+        index=0,
+        disabled=True
+    )
+
+    st.info(f"Using: **{selected_model}**")
+    st.caption("To change the model, update `config.ini`.")
     st.divider()
-    st.markdown("### Knowledge Graph")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -42,7 +81,11 @@ if prompt := st.chat_input(""):
     
     with st.chat_message("assistant"):
         def response_generator():
-            payload = {"query" : prompt}
+            payload = {
+                "query" : prompt,
+                "llm_provider" : provider_id,
+                "llm_model" : selected_model
+                }
 
             try:
                 with requests.post(API_URL, json=payload, stream=True) as response:

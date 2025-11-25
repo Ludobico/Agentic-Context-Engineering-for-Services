@@ -1,5 +1,6 @@
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain_core.documents import Document
+from langchain_core.runnables import RunnableLambda
 import uuid
 from datetime import datetime
 import asyncio
@@ -12,9 +13,15 @@ from module.prompt import (curator_prompt,
                            routing_prompt,
                            simple_prompt
                            )
-from node.node_utils import SolutionOnlyStreamCallback, StrictJsonOutputParser, prune_playbook, is_duplicate_entry, run_human_eval_test, run_hotpot_eval_test
+from node.node_utils import (SolutionOnlyStreamCallback,
+                             StrictJsonOutputParser,
+                             prune_playbook,
+                             is_duplicate_entry,
+                             run_human_eval_test,
+                             run_hotpot_eval_test,
+                             dynamic_llm_router
+                             )
 from core import State, PlaybookEntry
-from module.LLMs import gpt
 from module.db_management import VectorStore, PlayBookDB, get_db_instance, get_vector_store_instance
 from config.getenv import GetEnv
 from utils import Logger, highlight_print
@@ -23,7 +30,7 @@ from utils import Logger, highlight_print
 
 
 env = GetEnv()
-llm = gpt()
+llm = RunnableLambda(dynamic_llm_router)
 logger = Logger(__name__)
 json_parser = StrictJsonOutputParser()
 
@@ -44,6 +51,10 @@ db = get_db_instance()
 async def generator_node(state : State) -> State:
     logger.debug("GENERATOR")
 
+    # model import
+    provider = state.get("llm_provider")
+    model = state.get("llm_model")
+
     # Retrieved Playbook
     retrieved_bullets = state.get("retrieved_bullets", [])
 
@@ -51,7 +62,10 @@ async def generator_node(state : State) -> State:
         "query" : state.get("query"),
         "retrieved_bullets" : retrieved_bullets
     }
-    generation = await generator_chain.ainvoke(inputs)
+    generation = await generator_chain.ainvoke(
+        inputs,
+        config={"configurable" : {"llm_provider" : provider, "llm_model" : model}}
+        )
 
     solution = generation.get("solution", "")
     rationale = generation.get("rationale", "")
@@ -71,10 +85,14 @@ async def generator_node(state : State) -> State:
 async def evaluator_node(state : State) -> State:
     logger.debug("EVALUATOR")
 
+    # model import
+    provider = state.get("llm_provider")
+    model = state.get("llm_model")
+
     query = state.get("query")
     solution = state.get("solution")
 
-    # A. HumanEval (Code Execution)
+    # HumanEval
     if state.get("test_code") and state.get("test_id"):
         test_code = state.get("test_code")
         test_id = state.get("test_id")
@@ -87,7 +105,7 @@ async def evaluator_node(state : State) -> State:
             "comment": f"Execution Result: {rating.upper()}.\nDetails: {message}"
         }
 
-    # B. HotpotQA (Text Matching)
+    # HotpotQA
     elif state.get("ground_truth"):
         ground_truth = state.get("ground_truth")
 
@@ -107,7 +125,10 @@ async def evaluator_node(state : State) -> State:
         }
 
         # rating 과 comment 형식의 feedback
-        feedback = await evaluator_chain.ainvoke(inputs)
+        feedback = await evaluator_chain.ainvoke(
+            inputs,
+            config={"configurable" : {"llm_provider" : provider, "llm_model" : model}}
+            )
 
     return {
         "feedback" : feedback
@@ -116,6 +137,10 @@ async def evaluator_node(state : State) -> State:
 
 async def reflector_node(state : State) -> State:
     logger.debug("REFLECTOR")
+
+    # model import
+    provider = state.get("llm_provider")
+    model = state.get("llm_model")
 
     # retrieve된 모든 항목을 평가 대상으로 지정
     retrieved_bullets = state.get("retrieved_bullets", [])
@@ -136,7 +161,10 @@ async def reflector_node(state : State) -> State:
     }
 
     # root_cause, key_insight, bullet_tags 3개의 key 값을 가진 JSON 반환
-    reflection = await reflector_chain.ainvoke(inputs)
+    reflection = await reflector_chain.ainvoke(
+        inputs,
+        config={"configurable" : {"llm_provider" : provider, "llm_model" : model}}
+        )
 
     return {
         "reflection" : reflection
@@ -145,6 +173,10 @@ async def reflector_node(state : State) -> State:
 
 async def curator_node(state : State) -> State:
     logger.debug("CURATOR")
+
+    # model import
+    provider = state.get("llm_provider")
+    model = state.get("llm_model")
 
     playbook_str = '\n'.join(f"[{entry['entry_id']}] {entry['content']}" for entry in state['playbook']) or "EMPTY PLAYBOOK"
 
@@ -156,7 +188,10 @@ async def curator_node(state : State) -> State:
     }
 
     # reasoning, operations 2개의 key값을 가진 JSON 반환
-    new_insights = await curator_chain.ainvoke(inputs)
+    new_insights = await curator_chain.ainvoke(
+        inputs,
+        config={"configurable" : {"llm_provider" : provider, "llm_model" : model}}
+        )
 
     operations = new_insights.get("operations", [])
     return {
@@ -166,6 +201,10 @@ async def curator_node(state : State) -> State:
 async def update_playbook_node(state : State) -> State:
     # halpful, harmful count 누적안됨, 무조건 helpful이 1로 시작 -> 해결필요 -> curator에서 retrieved된 결과를 playbook에 전달하지 않아서 생긴 이슈였음
     logger.debug("PLAYBOOK DELTA UPDATE")
+
+    # model import
+    provider = state.get("llm_provider")
+    model = state.get("llm_model")
 
     updated_playbook = state['playbook'].copy()
     max_playbook_size = state.get("max_playbook_size")
@@ -302,8 +341,15 @@ async def update_playbook_node(state : State) -> State:
 async def retriever_playbook_node(state : State) -> State:
     logger.debug("PLAYBOOK RETRIEVER")
 
+    # model import
+    provider = state.get("llm_provider")
+    model = state.get("llm_model")
+
     query = state.get("query")
-    rewritten_query = await rewrite_chain.ainvoke({"query" : query})
+    rewritten_query = await rewrite_chain.ainvoke(
+        {"query" : query},
+        config={"configurable" : {"llm_provider" : provider, "llm_model" : model}}
+        )
     top_k = int(state.get("retrieval_topk", env.get_playbook_config['RETRIEVAL_TOP_K']))
     threshold = float(state.get("retrieval_threshold", env.get_playbook_config['RETRIEVAL_THRESHOLD']))
 
@@ -358,20 +404,33 @@ async def retriever_playbook_node(state : State) -> State:
 async def router_node(state : State) -> State:
     logger.debug("ROUTER")
 
+    # model import
+    provider = state.get("llm_provider")
+    model = state.get("llm_model")
+
     query = state.get("query")
 
-    result = await router_chain.ainvoke({"query" : query})
+    result = await router_chain.ainvoke(
+        {"query" : query},
+        config={"configurable" : {"llm_provider" : provider, "llm_model" : model}}
+        )
     route = result.get("route", "complex")
-    highlight_print(route, 'blue')
-
+    
     return {"router_decision" : route}
 
 async def simple_generator_node(state : State) -> State:
     logger.debug("SIMPLE GENERATOR")
 
+    # model import
+    provider = state.get("llm_provider")
+    model = state.get("llm_model")
+
     query = state.get("query")
 
-    solution = await simple_chain.ainvoke({"query" : query})
+    solution = await simple_chain.ainvoke(
+        {"query" : query},
+        config={"configurable" : {"llm_provider" : provider, "llm_model" : model}}
+        )
 
     return {
         "solution" : solution

@@ -14,6 +14,7 @@ class GetEnv:
         
         self.props = configparser.ConfigParser()
         self.DEFAULT_SECTION = "DEFAULT"
+        self.LLM_SECTION = "LLM"
         self.PLAYBOOK_SECTION = "PLAYBOOK"
         self.DATABASE_SECTION = "DATABASE"
         self.MEMORY_SECTION = "MEMORY"
@@ -27,8 +28,30 @@ class GetEnv:
 
     @property
     def get_openai_api_key(self):
-        openai_gpt_api_key = self.props[self.DEFAULT_SECTION]['OPENAI_GPT_API_KEY']
+        openai_gpt_api_key = self.props[self.LLM_SECTION]['OPENAI_API_KEY']
         return openai_gpt_api_key
+    
+    @property
+    def get_claude_api_key(self):
+        claude_api_key = self.props[self.LLM_SECTION]['CLAUDE_API_KEY']
+        return claude_api_key
+
+    @property
+    def get_gemini_api_key(self):
+        gemini_api_key = self.props[self.LLM_SECTION]['GEMINI_API_KEY']
+        return gemini_api_key
+
+    @property
+    def get_openai_model(self):
+        return self.props[self.LLM_SECTION]['OPENAI_MODEL']
+
+    @property
+    def get_claude_model(self):
+        return self.props[self.LLM_SECTION]['CLAUDE_MODEL']
+
+    @property
+    def get_gemini_model(self):
+        return self.props[self.LLM_SECTION]['GEMINI_MODEL']
     
     @property
     def get_huggingface_token(self):

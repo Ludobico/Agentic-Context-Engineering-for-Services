@@ -1,4 +1,4 @@
-from typing import TypedDict, Optional, NotRequired
+from typing import TypedDict, Optional, NotRequired, Literal
 from datetime import datetime
 
 class PlaybookEntry(TypedDict):
@@ -19,6 +19,10 @@ class State(TypedDict):
     solution : Optional[str]
     verbose : Optional[bool]
     router_decision : str
+
+    # model
+    llm_provider : Literal["openai", "anthropic", "google"]
+    llm_model : str
 
     # playbook retrieve
     retrieved_bullets : list[PlaybookEntry]

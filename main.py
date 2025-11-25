@@ -41,6 +41,8 @@ async def chat_stream(request : ChatRequest):
         "solution" : "",
         "verbose" : False,
         "router_decision" : "",
+        "llm_provider" : request.llm_provider,
+        "llm_model" : request.llm_model,
         "retrieved_bullets" : [],
         "used_bullet_ids" : [],
         "trajectory" : [],
@@ -52,6 +54,9 @@ async def chat_stream(request : ChatRequest):
         "retrieval_threshold": env.get_playbook_config["RETRIEVAL_THRESHOLD"],
         "retrieval_topk": env.get_playbook_config['RETRIEVAL_TOP_K'],
     }
+
+    logger.debug(f"provider : {request.llm_provider}")
+    logger.debug(f"model : {request.llm_model}")
 
     async def event_generator():
         full_solution = ""
@@ -70,7 +75,6 @@ async def chat_stream(request : ChatRequest):
         result_state['solution'] = full_solution
 
         route = result_state.get("router_decision", "complex")
-        highlight_print(route, 'green')
 
         if route == 'complex':
             asyncio.create_task(run_background_learning(result_state))

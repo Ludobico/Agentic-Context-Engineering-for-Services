@@ -6,9 +6,12 @@ from typing import Any, Optional
 from langchain_core.callbacks import AsyncCallbackHandler
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_core.runnables import RunnableConfig
+
 from module.db_management import VectorStore
 from core.state import PlaybookEntry
 from config.getenv import GetEnv
+from module.LLMs import get_llm
 
 env = GetEnv()
 
@@ -283,3 +286,14 @@ def run_hotpot_eval_test(
         return True, f"Partial Match! Answer '{ground_truth}' found in response."
         
     return False, f"Mismatch. Expected '{ground_truth}', but got '{generated_answer}'."
+
+async def dynamic_llm_router(input_data, config : RunnableConfig):
+    configurable = config.get("configurable", {})
+
+    provider = configurable.get("llm_provider", "openai")
+    model = configurable.get("llm_model", None)
+    temp = configurable.get("temperature", 0.6)
+
+    llm = get_llm(provider = provider, model = model, temperature = temp)
+
+    return await llm.ainvoke(input_data, config=config)
