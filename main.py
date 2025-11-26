@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import asyncio
 import json
+from contextlib import asynccontextmanager
+import torch
 
 from utils import Logger
 from core import State, ChatRequest
@@ -12,18 +14,29 @@ from graph import create_serving_graph, create_learning_graph
 from graph.graph_utils import solution_stream
 from config.getenv import GetEnv
 from module.memory import RedisMemoryManager
+from module.db_management import get_db_instance, get_vector_store_instance
 
 env = GetEnv()
 logger = Logger(__name__)
 
-# graph
-serving_graph = create_serving_graph()
-learning_graph = create_learning_graph()
+serving_graph = None
+learning_graph = None
+memory_manager = None
 
-# memory
-memory_manager = RedisMemoryManager()
+@asynccontextmanager
+async def lifespan(app : FastAPI):
+    global serving_graph, learning_graph, memory_manager
+    torch.cuda.empty_cache()
 
-app = FastAPI(title="ACE Framework API", version="1.0.0")
+    # graph
+    serving_graph = create_serving_graph()
+    learning_graph = create_learning_graph()
+    # memory
+    memory_manager = RedisMemoryManager()
+
+    yield
+
+app = FastAPI(title="ACE Framework API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -110,4 +123,4 @@ async def chat_stream(request : ChatRequest):
     return StreamingResponse(event_generator(), media_type='text/event-stream')
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host='0.0.0.0', port=8000, reload=False)
+    uvicorn.run("main:app", host='0.0.0.0', port=8000, reload=True)

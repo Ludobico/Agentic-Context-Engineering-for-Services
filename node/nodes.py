@@ -19,15 +19,14 @@ from node.node_utils import (SolutionOnlyStreamCallback,
                              is_duplicate_entry,
                              run_human_eval_test,
                              run_hotpot_eval_test,
-                             dynamic_llm_router
+                             dynamic_llm_router,
                              )
 from core import State, PlaybookEntry
 from module.db_management import VectorStore, PlayBookDB, get_db_instance, get_vector_store_instance
 from config.getenv import GetEnv
 from utils import Logger, highlight_print
 
-# TODO : vector store, db 삭제하는 함수(테스트용), redis로 메모리구축할때 session_id 발급, vector store로 장기 메모리 저장, 새로운 임베딩모델 테스트
-
+# TODO : vector store, db 삭제하는 함수(테스트용), vector store로 장기 메모리 저장, 새로운 임베딩모델 테스트
 
 env = GetEnv()
 llm = RunnableLambda(dynamic_llm_router)
@@ -45,8 +44,8 @@ simple_chain = simple_prompt() | llm | StrOutputParser()
 
 # DB
 vector_store = get_vector_store_instance()
-embedding_model = vector_store.get_embedding_model
 db = get_db_instance()
+embedding_model = vector_store.get_embedding_model
 
 async def generator_node(state : State) -> State:
     logger.debug("GENERATOR")

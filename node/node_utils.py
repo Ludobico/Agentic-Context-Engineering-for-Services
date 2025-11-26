@@ -2,7 +2,7 @@ import tiktoken
 import re
 import json
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, Callable
 from langchain_core.callbacks import AsyncCallbackHandler
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_huggingface import HuggingFaceEmbeddings
