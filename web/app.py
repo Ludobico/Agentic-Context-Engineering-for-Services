@@ -17,7 +17,6 @@ st.set_page_config(
 API_URL = f"http://localhost:{port}"
 
 st.title("ACE Framework : Self-Improving Agent")
-st.caption("Retrieval → Generation (Serving) | Evaluation → Reflector → Curator → Update")
 
 # session management
 def get_all_sessions():
@@ -213,5 +212,5 @@ if prompt := st.chat_input(""):
     
     st.session_state.messages.append({"role" : "assistant", "content" : full_response})
 
-    if (st.session_state.messages) == 2:
-        st.rerun()
+if (st.session_state.messages) == 2:
+    st.rerun()

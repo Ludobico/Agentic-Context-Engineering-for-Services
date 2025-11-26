@@ -6,6 +6,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from config.getenv import GetEnv
 
 env = GetEnv()
+memory_limit = env.get_memory_config['MAX_MEMORY_SIZE']
 
 class RedisMemoryManager:
     def __init__(self):
@@ -54,9 +55,12 @@ class RedisMemoryManager:
         await self.r.delete(key)
         await self.r.srem("all_sessions", session_id)
 
-    async def get_langchain_message(self, session_id : str):
+    async def get_langchain_message(self, session_id : str, limit : int = None):
+        if limit is None:
+            limit = int(memory_limit)
+
         key = f"session:{session_id}:history"
-        raw = await self.r.lrange(key, 0, -1)
+        raw = await self.r.lrange(key, 0, limit -1)
 
         parsed = [json.loads(m) for m in reversed(raw)]
 

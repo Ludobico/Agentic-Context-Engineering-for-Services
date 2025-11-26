@@ -23,6 +23,7 @@ from node.node_utils import (SolutionOnlyStreamCallback,
                              )
 from core import State, PlaybookEntry
 from module.db_management import VectorStore, PlayBookDB, get_db_instance, get_vector_store_instance
+from module.memory import RedisMemoryManager
 from config.getenv import GetEnv
 from utils import Logger, highlight_print
 
@@ -47,6 +48,9 @@ vector_store = get_vector_store_instance()
 db = get_db_instance()
 embedding_model = vector_store.get_embedding_model
 
+# MEMORY
+memory_manager = RedisMemoryManager()
+
 async def generator_node(state : State) -> State:
     logger.debug("GENERATOR")
 
@@ -57,8 +61,12 @@ async def generator_node(state : State) -> State:
     # Retrieved Playbook
     retrieved_bullets = state.get("retrieved_bullets", [])
 
+    session_id = state.get("session_id")
+    history_messages = await memory_manager.get_langchain_message(session_id)
+
     inputs = {
         "query" : state.get("query"),
+        "chat_history" : history_messages,
         "retrieved_bullets" : retrieved_bullets
     }
     generation = await generator_chain.ainvoke(
@@ -425,14 +433,20 @@ async def simple_generator_node(state : State) -> State:
     model = state.get("llm_model")
 
     query = state.get("query")
+    session_id = state.get("session_id")
+    history_messages = await memory_manager.get_langchain_message(session_id)
+
 
     solution = await simple_chain.ainvoke(
-        {"query" : query},
+            {
+            "query" : query,
+            "chat_history" : history_messages
+            },
         config={"configurable" : {"llm_provider" : provider, "llm_model" : model}}
         )
 
     return {
-        "solution" : solution
+        "solution" : solution,
     }
 
 

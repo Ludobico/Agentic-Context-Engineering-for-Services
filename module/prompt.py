@@ -1,4 +1,4 @@
-from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate, MessagesPlaceholder
 from config.getenv import GetEnv
 
 env = GetEnv()
@@ -43,6 +43,7 @@ Please execute this task using the provided playbook entries.
 
     messages = [
         SystemMessagePromptTemplate.from_template(system_template, partial_variables= {"language" : language}),
+        MessagesPlaceholder(variable_name = "chat_history"),
         HumanMessagePromptTemplate.from_template(human_template)
     ]
 
@@ -470,6 +471,7 @@ You MUST respond with a valid JSON object.
 
     messages = [
     SystemMessagePromptTemplate.from_template(system_template, partial_variables= {"language" : language}),
+    MessagesPlaceholder(variable_name = "chat_history"),
     HumanMessagePromptTemplate.from_template(human_template)
     ]
     prompt = ChatPromptTemplate(messages=messages)

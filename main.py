@@ -66,12 +66,14 @@ async def delete_chat_history(session_id : str):
 
 @app.post("/chat/stream")
 async def chat_stream(request : ChatRequest):
+    sid = request.session_id
     initial_state = {
         "query" : request.query,
         "playbook" : [],
         "solution" : "",
         "verbose" : False,
         "router_decision" : "",
+        "session_id" : sid,
         "llm_provider" : request.llm_provider,
         "llm_model" : request.llm_model,
         "retrieved_bullets" : [],
@@ -86,7 +88,6 @@ async def chat_stream(request : ChatRequest):
         "retrieval_topk": env.get_playbook_config['RETRIEVAL_TOP_K'],
     }
 
-    sid = request.session_id
     # memory : question
     await memory_manager.save_user_message(sid, request.query)
 
@@ -123,4 +124,4 @@ async def chat_stream(request : ChatRequest):
     return StreamingResponse(event_generator(), media_type='text/event-stream')
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host='0.0.0.0', port=8000, reload=True)
+    uvicorn.run("main:app", host='0.0.0.0', port=8000, reload=False)
