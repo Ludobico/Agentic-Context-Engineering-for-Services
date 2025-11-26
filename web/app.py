@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import json
 import time
+import uuid
 
 from config.getenv import GetEnv
 
@@ -13,16 +14,77 @@ st.set_page_config(
     layout='wide'
 )
 
-API_URL = f"http://localhost:{port}/chat/stream"
+API_URL = f"http://localhost:{port}"
 
 st.title("ACE Framework : Self-Improving Agent")
 st.caption("Retrieval → Generation (Serving) | Evaluation → Reflector → Curator → Update")
 
+# session management
+def get_all_sessions():
+    res = requests.get(f"{API_URL}/chat/sessions")
+    if res.status_code == 200:
+        return res.json().get("sessions", [])
+    return []
+
+def get_history(sid):
+    res = requests.get(f"{API_URL}/chat/history/{sid}")
+    if res.status_code == 200:
+        return res.json()
+    return []
+
+if "session_id" not in st.session_state:
+    all_sessions = get_all_sessions()
+
+    if all_sessions:
+        st.session_state.session_id = all_sessions[0]
+        st.session_state.is_new_chat = False
+    
+    else:
+        st.session_state.session_id = str(uuid.uuid4())
+        st.session_state.is_new_chat = True
+    
+    st.session_state.messages = []
+
+if not st.session_state.messages and not st.session_state.get("is_new_chat", False):
+    history_data = get_history(st.session_state.session_id)
+
+    if history_data:
+        for msg in history_data:
+            role = 'user' if msg['type'] == 'user' else 'assistant'
+            st.session_state.messages.append({
+                "role" : role,
+                "content" : msg['content']
+            })
+    else:
+        pass
 
 # sidebar
 with st.sidebar:
-    st.header("Model Settings")
+    if st.button("New Chat", use_container_width=True, type='primary'):
+        st.session_state.session_id = str(uuid.uuid4())
+        st.session_state.messages = []
+        st.session_state.is_new_chat = True
+        st.rerun()
+    
+    st.divider()
+    all_sessions = get_all_sessions()
+    if not all_sessions:
+        st.caption("No history yet")
+    
+    for sid in all_sessions:
+        is_current = (sid == st.session_state.session_id)
 
+        label = f"Chat {sid[:8]}"
+        if is_current:
+            label += "(Current)"
+        
+        if st.button(label, key=sid, use_container_width=True, disabled=is_current):
+            st.session_state.session_id = sid
+            st.session_state.messages = []
+            st.session_state.is_new_chat = False
+            st.rerun()
+
+    st.header("Model Settings")
     valid_providers = {}
 
     if env.get_openai_api_key and env.get_openai_api_key.strip():
@@ -79,16 +141,19 @@ if prompt := st.chat_input(""):
     with st.chat_message("user"):
         st.markdown(prompt)
     
+    st.session_state.is_new_chat = False
+    
     with st.chat_message("assistant"):
         def response_generator():
             payload = {
                 "query" : prompt,
                 "llm_provider" : provider_id,
-                "llm_model" : selected_model
+                "llm_model" : selected_model,
+                "session_id" : st.session_state.session_id
                 }
 
             try:
-                with requests.post(API_URL, json=payload, stream=True) as response:
+                with requests.post(f"{API_URL}/chat/stream", json=payload, stream=True) as response:
                     if response.status_code != 200:
                         yield f"Error : Server returned status {response.status_code}"
                     

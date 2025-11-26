@@ -45,9 +45,15 @@ class EmbeddingPreprocessor:
 
         model_kwargs = {
             "device" : device,
-            "token" : access_key
         }
-        model_name = "google/embeddinggemma-300m"
+
+        if access_key and access_key.strip():
+            model_name = "google/embeddinggemma-300m"
+            model_kwargs['token'] = access_key
+        
+        else:
+            model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+        
         embedding_model_name = HuggingFaceEmbeddings(model_name = model_name, cache_folder = download_path, encode_kwargs={"normalize_embeddings" : True}, model_kwargs=model_kwargs)
         return embedding_model_name
     

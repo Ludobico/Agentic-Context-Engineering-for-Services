@@ -14,6 +14,7 @@ class GetEnv:
         
         self.props = configparser.ConfigParser()
         self.DEFAULT_SECTION = "DEFAULT"
+        self.EMBEDDING_SECTION = "EMBEDDING"
         self.LLM_SECTION = "LLM"
         self.PLAYBOOK_SECTION = "PLAYBOOK"
         self.DATABASE_SECTION = "DATABASE"
@@ -55,7 +56,7 @@ class GetEnv:
     
     @property
     def get_huggingface_token(self):
-        huggingface_token = self.props[self.DEFAULT_SECTION]['HUGGINGFACE_ACCESS_TOKEN']
+        huggingface_token = self.props.get(self.EMBEDDING_SECTION, 'HUGGINGFACE_ACCESS_TOKEN', fallback='')
         return huggingface_token
     
     @property
@@ -91,8 +92,8 @@ class GetEnv:
         return database_config
     
     @property
-    def get_vector_store_gpu(self):
-        return self.props.getboolean(self.DATABASE_SECTION, 'USE_GPU')
+    def get_embedding_gpu(self):
+        return self.props.getboolean(self.EMBEDDING_SECTION, 'USE_GPU')
     
     @property
     def get_db_dir(self):

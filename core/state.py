@@ -19,6 +19,7 @@ class State(TypedDict):
     solution : Optional[str]
     verbose : Optional[bool]
     router_decision : str
+    session_id : str
 
     # model
     llm_provider : Literal["openai", "anthropic", "google"]

@@ -26,7 +26,7 @@ from module.db_management import VectorStore, PlayBookDB, get_db_instance, get_v
 from config.getenv import GetEnv
 from utils import Logger, highlight_print
 
-# TODO : inference와 learning 을 내부적으로 나누기, vector store, db 삭제하는 함수(테스트용)
+# TODO : vector store, db 삭제하는 함수(테스트용), redis로 메모리구축할때 session_id 발급, vector store로 장기 메모리 저장, 새로운 임베딩모델 테스트
 
 
 env = GetEnv()
@@ -415,7 +415,7 @@ async def router_node(state : State) -> State:
         config={"configurable" : {"llm_provider" : provider, "llm_model" : model}}
         )
     route = result.get("route", "complex")
-    
+
     return {"router_decision" : route}
 
 async def simple_generator_node(state : State) -> State:

@@ -4,3 +4,4 @@ class ChatRequest(BaseModel):
     query : str
     llm_provider : str
     llm_model : str
+    session_id : str

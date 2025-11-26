@@ -7,7 +7,7 @@ from config.getenv import GetEnv
 
 env = GetEnv()
 
-class ResirMemoryManager:
+class RedisMemoryManager:
     def __init__(self):
         self.redis_host = env.get_memory_config['REDIS_HOST']
         self.redis_port = env.get_memory_config['REDIS_PORT']
@@ -26,6 +26,11 @@ class ResirMemoryManager:
         }
 
         await self.r.lpush(f"session:{session_id}:history", json.dumps(message))
+        await self.r.sadd("all_sessions", session_id)
+    
+    async def get_all_session_ids(self):
+        session_ids = await self.r.smembers("all_sessions")
+        return list(session_ids)
 
     async def save_ai_message(self, session_id : str, llm_response : str):
         message = {
@@ -47,6 +52,7 @@ class ResirMemoryManager:
     async def clear_session(self, session_id : str):
         key = f"session:{session_id}:history"
         await self.r.delete(key)
+        await self.r.srem("all_sessions", session_id)
 
     async def get_langchain_message(self, session_id : str):
         key = f"session:{session_id}:history"

@@ -10,15 +10,18 @@ from utils import Logger
 from core import State, ChatRequest
 from graph import create_serving_graph, create_learning_graph
 from graph.graph_utils import solution_stream
-from module.db_management import get_db_instance, get_vector_store_instance
 from config.getenv import GetEnv
-from utils import highlight_print
+from module.memory import RedisMemoryManager
 
 env = GetEnv()
 logger = Logger(__name__)
 
+# graph
 serving_graph = create_serving_graph()
 learning_graph = create_learning_graph()
+
+# memory
+memory_manager = RedisMemoryManager()
 
 app = FastAPI(title="ACE Framework API", version="1.0.0")
 
@@ -32,6 +35,16 @@ app.add_middleware(
 
 async def run_background_learning(state : State):
     await learning_graph.ainvoke(state)
+
+@app.get("/chat/history/{session_id}")
+async def get_chat_history(session_id : str):
+    history = await memory_manager.get_history(session_id)
+    return history
+
+@app.get("/chat/sessions")
+async def get_sessions():
+    sessions = await memory_manager.get_all_session_ids()
+    return {"sessions" : sessions}
 
 @app.post("/chat/stream")
 async def chat_stream(request : ChatRequest):
@@ -55,6 +68,10 @@ async def chat_stream(request : ChatRequest):
         "retrieval_topk": env.get_playbook_config['RETRIEVAL_TOP_K'],
     }
 
+    sid = request.session_id
+    # memory : question
+    await memory_manager.save_user_message(sid, request.query)
+
     logger.debug(f"provider : {request.llm_provider}")
     logger.debug(f"model : {request.llm_model}")
 
@@ -73,6 +90,9 @@ async def chat_stream(request : ChatRequest):
         result_state = initial_state.copy()
         result_state.update(captured_data)
         result_state['solution'] = full_solution
+        # memory : question
+        result_state['session_id'] = sid
+        await memory_manager.save_ai_message(sid, full_solution)
 
         route = result_state.get("router_decision", "complex")
 
