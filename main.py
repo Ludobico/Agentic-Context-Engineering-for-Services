@@ -46,6 +46,11 @@ async def get_sessions():
     sessions = await memory_manager.get_all_session_ids()
     return {"sessions" : sessions}
 
+@app.delete("/chat/history/{session_id}")
+async def delete_chat_history(session_id : str):
+    await memory_manager.clear_session(session_id)
+    return {"status" : "success"}
+
 @app.post("/chat/stream")
 async def chat_stream(request : ChatRequest):
     initial_state = {

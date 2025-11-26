@@ -32,57 +32,91 @@ def get_history(sid):
         return res.json()
     return []
 
-if "session_id" not in st.session_state:
-    all_sessions = get_all_sessions()
+def get_chat_history(sid : str):
+    res = requests.get(f"{API_URL}/chat/history/{sid}")
+    if res.status_code == 200:
+        history_data = res.json()
 
-    if all_sessions:
-        st.session_state.session_id = all_sessions[0]
-        st.session_state.is_new_chat = False
-    
-    else:
-        st.session_state.session_id = str(uuid.uuid4())
-        st.session_state.is_new_chat = True
-    
-    st.session_state.messages = []
-
-if not st.session_state.messages and not st.session_state.get("is_new_chat", False):
-    history_data = get_history(st.session_state.session_id)
-
-    if history_data:
+        messages = []
         for msg in history_data:
-            role = 'user' if msg['type'] == 'user' else 'assistant'
-            st.session_state.messages.append({
+            role = 'user'if msg['type'] == 'user' else 'assistant'
+            messages.append({
                 "role" : role,
                 "content" : msg['content']
             })
+        return messages
+    
+    return []
+
+def init_new_chat():
+    st.session_state.session_id = str(uuid.uuid4())
+    st.session_state.messages = []
+    st.session_state.is_new_chat = True
+
+if "session_id" not in st.session_state:
+    existing_sessions = get_all_sessions()
+
+    if existing_sessions:
+        st.session_state.session_id = existing_sessions[0]
+        st.session_state.messages = []
+        st.session_state.is_new_chat = False
+    
+    else:
+        init_new_chat()
+
+
+if not st.session_state.messages and not st.session_state.get("is_new_chat", False):
+    loaded_messages = get_chat_history(st.session_state.session_id)
+
+    if loaded_messages:
+        st.session_state.messages = loaded_messages
     else:
         pass
 
+
 # sidebar
+# ---------------------------------------------------------
 with st.sidebar:
-    if st.button("New Chat", use_container_width=True, type='primary'):
-        st.session_state.session_id = str(uuid.uuid4())
-        st.session_state.messages = []
-        st.session_state.is_new_chat = True
+    # new chat
+    if st.button("New Chat", use_container_width=True, type='secondary'):
+        init_new_chat()
         st.rerun()
+
+    # delete chat
+    if st.session_state.session_id and not st.session_state.get("is_new_chat", False):
+        if st.button("Delete Current Chat", use_container_width=True, type='primary'):
+            del_res = requests.delete(f"{API_URL}/chat/history/{st.session_state.session_id}")
+
+            if del_res.status_code == 200:
+                st.success("Chat deleted successfully")
+                time.sleep(0.5)
+                init_new_chat()
+                st.rerun()
+    
+    st.caption(f"Current Session : {st.session_state.session_id[:8]}")
+    st.divider()
+
+    st.subheader("Chat History")
+    sessions = get_all_sessions()
+
+    if not sessions:
+        pass
+
+    else:
+        for sid in sessions:
+            is_current = (sid == st.session_state.session_id)
+
+            label = f"Chat {sid[:8]}"
+            if is_current:
+                label += "(Current)"
+            
+            if st.button(label, key=sid, use_container_width=True, disabled=is_current):
+                st.session_state.session_id = sid
+                st.session_state.messages = []
+                st.session_state.is_new_chat = False
+                st.rerun()
     
     st.divider()
-    all_sessions = get_all_sessions()
-    if not all_sessions:
-        st.caption("No history yet")
-    
-    for sid in all_sessions:
-        is_current = (sid == st.session_state.session_id)
-
-        label = f"Chat {sid[:8]}"
-        if is_current:
-            label += "(Current)"
-        
-        if st.button(label, key=sid, use_container_width=True, disabled=is_current):
-            st.session_state.session_id = sid
-            st.session_state.messages = []
-            st.session_state.is_new_chat = False
-            st.rerun()
 
     st.header("Model Settings")
     valid_providers = {}
@@ -128,9 +162,7 @@ with st.sidebar:
     st.info(f"Using: **{selected_model}**")
     st.caption("To change the model, update `config.ini`.")
     st.divider()
-
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# ---------------------------------------------------------
 
 for message in st.session_state.messages:
     with st.chat_message(message['role']):
@@ -180,3 +212,6 @@ if prompt := st.chat_input(""):
         full_response = st.write_stream(response_generator())
     
     st.session_state.messages.append({"role" : "assistant", "content" : full_response})
+
+    if (st.session_state.messages) == 2:
+        st.rerun()
