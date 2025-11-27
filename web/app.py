@@ -175,6 +175,7 @@ if prompt := st.chat_input(""):
     st.session_state.is_new_chat = False
     
     with st.chat_message("assistant"):
+        status_box = st.status("Processing Request", expanded=True)
         def response_generator():
             payload = {
                 "query" : prompt,
@@ -200,8 +201,15 @@ if prompt := st.chat_input(""):
 
                                 try:
                                     json_data = json.loads(data_str)
-                                    token = json_data.get("token", "")
-                                    yield token
+                                    
+                                    msg_type = json_data.get("type")
+                                    content = json_data.get("content", "")
+
+                                    if msg_type == "log":
+                                        status_box.write(content)
+                                        status_box.update(label=content)
+                                    elif msg_type == 'token':
+                                        yield content
                                 
                                 except json.JSONDecodeError:
                                     pass
@@ -209,8 +217,6 @@ if prompt := st.chat_input(""):
                 yield "Server Error"
 
         full_response = st.write_stream(response_generator())
+        status_box.update(label="Response Generated", state='complete', expanded=False)
     
     st.session_state.messages.append({"role" : "assistant", "content" : full_response})
-
-if (st.session_state.messages) == 2:
-    st.rerun()

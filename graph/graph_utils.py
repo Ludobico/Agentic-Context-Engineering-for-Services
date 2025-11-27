@@ -12,85 +12,122 @@ from config.getenv import GetEnv
 
 env = GetEnv()
 
-async def solution_stream(graph: "CompiledStateGraph", input_data, capture_container: dict[str, Any] = None) -> AsyncGenerator:
-    solution_buffer = ""
-    state = "SEARCHING"
+async def solution_stream(graph, input_data, capture_container: dict[str, Any] = None) -> AsyncGenerator:
+    buffer = ""           
+    solution_buffer = ""  
+    
+    state = "DETECTING" 
     is_escaped = False
 
-    async for event in graph.astream_events(input_data, version='v2'):
-        # Generator 완료 시 모든 메타데이터 캡처
+    # 로그 추적 대상 노드
+    NODE_LOG_MAP = {
+        "router": "Router: Analyzing query...",
+        "retriever": "Retriever: Searching Playbook...",
+        "simple_generator": "Simple Generator: Generating response...",
+        "generator": "Generator: Thinking with Playbook...",
+    }
+
+    async for event in graph.astream_events(input_data, version="v2"):
+        
+        # 1. 노드 시작 로그 (Log Streaming)
+        if event["event"] == "on_chain_start":
+            node_name = event.get("name")
+            if node_name in NODE_LOG_MAP:
+                yield {"type": "log", "content": NODE_LOG_MAP[node_name]}
+
+        # 2. 데이터 캡처 (Data Capture)
         if event["event"] == "on_chain_end":
             data = event.get("data", {})
             output = data.get("output")
-            
-            if isinstance(output, dict):
-                if capture_container is not None:
-                    if "router_decision" in output:
-                        capture_container["router_decision"] = output["router_decision"]
-                    
-                    if "retrieved_bullets" in output:
-                        capture_container["retrieved_bullets"] = output["retrieved_bullets"]
-                        if "playbook" in output: # playbook도 같이 업데이트
-                            capture_container["playbook"] = output["playbook"]
-                    
-                    if "used_bullet_ids" in output:
-                        capture_container["used_bullet_ids"] = output["used_bullet_ids"]
-                        # Simple Generator일 경우 trajectory가 없을 수 있으므로 get 사용
-                        if output["trajectory"] and isinstance(output["trajectory"], list):
-                            trajectory_text = output['trajectory'][0]
-                            # 정규표현식으로 rationale 추출
-                            match = re.search(r'## Rationale \(Thought Process\):\n(.*?)\n\n## Solution', 
-                                            trajectory_text, re.DOTALL)
-                            if match:
-                                capture_container['rationale'] = match.group(1).strip()
+            if isinstance(output, dict) and capture_container is not None:
+                # Router
+                if "router_decision" in output:
+                    capture_container["router_decision"] = output["router_decision"]
+                # Retriever
+                if "retrieved_bullets" in output:
+                    capture_container["retrieved_bullets"] = output["retrieved_bullets"]
+                    if "playbook" in output:
+                        capture_container["playbook"] = output["playbook"]
+                # Generator
+                if "used_bullet_ids" in output:
+                    capture_container["used_bullet_ids"] = output["used_bullet_ids"]
+                if "trajectory" in output:
+                    capture_container["trajectory"] = output["trajectory"]
+                    if isinstance(output["trajectory"], list) and output["trajectory"]:
+                        traj_text = output["trajectory"][0]
+                        match = re.search(r'## Rationale \(Thought Process\):\n(.*?)\n\n## Solution', traj_text, re.DOTALL)
+                        if match:
+                            capture_container['rationale'] = match.group(1).strip()
 
-                    # used_bullet_ids는 별도로 체크 (Simple 모드 등 Trajectory와 독립적일 수 있음)
-                    if "used_bullet_ids" in output:
-                        capture_container["used_bullet_ids"] = output["used_bullet_ids"]
-        
-        # Retriever 결과 캡처
-        if event['event'] == 'on_chain_end' and event.get("name") == "retriever":
-            if capture_container is not None:
-                output = event['data']['output']
-                if 'retrieved_bullets' in output:
-                    capture_container['retrieved_bullets'] = output['retrieved_bullets']
-        
-        # Solution만 스트리밍
+        # 3. 텍스트 스트리밍 (Token Streaming)
         if event['event'] == "on_chat_model_stream":
             chunk = event['data']['chunk'].content
-            if not chunk:
+            if not chunk: continue
+
+            # Simple Mode 감지
+            is_simple_mode = False
+            if capture_container and capture_container.get("router_decision") == "simple":
+                is_simple_mode = True
+
+            # [Case A] Simple Mode (Raw Text)
+            if is_simple_mode:
+                # [수정 2] buffer 대신 solution_buffer에 바로 누적
+                solution_buffer += chunk
+                yield {"type": "token", "content": chunk}
                 continue
 
-            # SEARCHING 상태에서 "solution": " 찾기
-            if state == "SEARCHING":
-                solution_buffer += chunk
-                match = re.search(r'"solution"\s*:\s*"', solution_buffer)
+            # [Case B] Complex Mode (JSON Parsing)
+            if state == "DETECTING":
+                buffer += chunk # 임시 버퍼에 누적
+                
+                # "solution": " 패턴 찾기
+                match = re.search(r'"solution"\s*:\s*"', buffer)
+                
                 if match:
-                    state = "STREAMING"
-                    solution_buffer = ""  # 리셋
-                    remaining = chunk[match.end() - len(chunk):]
-                    if remaining:
-                        chunk = remaining
-                    else:
-                        continue
-                else:
-                    continue
+                    state = "STREAMING_JSON"
+                    # 매칭된 부분 뒷부분부터가 진짜 내용
+                    remaining = buffer[match.end():]
+                    buffer = "" # 임시 버퍼 리셋
                     
-            if state == "STREAMING":
+                    # 남은 뒷부분 처리 (이스케이프 로직 적용)
+                    for char in remaining:
+                        # 아래 STREAMING_JSON 로직과 동일하게 처리
+                        if is_escaped:
+                            char_yield = ""
+                            if char == 'n': char_yield = '\n'
+                            elif char == 't': char_yield = '\t'
+                            elif char in ['"', '\\', '/']: char_yield = char
+                            else: char_yield = f'\\{char}'
+                            
+                            solution_buffer += char_yield
+                            yield {"type": "token", "content": char_yield}
+                            is_escaped = False
+                        elif char == '\\':
+                            is_escaped = True
+                        elif char == '"':
+                            state = "DONE"
+                            break
+                        else:
+                            solution_buffer += char
+                            yield {"type": "token", "content": char}
+
+                # 타임아웃 (너무 길어지면 그냥 출력)
+                elif len(buffer) > 1000:
+                    yield {"type": "token", "content": buffer}
+                    solution_buffer += buffer
+                    buffer = ""
+            
+            elif state == "STREAMING_JSON":
                 for char in chunk:
                     if is_escaped:
-                        if char == 'n': 
-                            solution_buffer += '\n'
-                            yield '\n'
-                        elif char == 't': 
-                            solution_buffer += '\t'
-                            yield '\t'
-                        elif char in ['"', '\\', '/']: 
-                            solution_buffer += char
-                            yield char
-                        else: 
-                            solution_buffer += f'\\{char}'
-                            yield f'\\{char}'
+                        char_yield = ""
+                        if char == 'n': char_yield = '\n'
+                        elif char == 't': char_yield = '\t'
+                        elif char in ['"', '\\', '/']: char_yield = char
+                        else: char_yield = f'\\{char}'
+                        
+                        solution_buffer += char_yield
+                        yield {"type": "token", "content": char_yield}
                         is_escaped = False
                     elif char == '\\':
                         is_escaped = True
@@ -99,11 +136,13 @@ async def solution_stream(graph: "CompiledStateGraph", input_data, capture_conta
                         break
                     else:
                         solution_buffer += char
-                        yield char
-    
-    # 최종 solution 저장
+                        yield {"type": "token", "content": char}
+
+    # 최종 저장 (Learning Graph용)
     if capture_container is not None:
-        capture_container['solution'] = solution_buffer
+        # 만약 buffer에 남은 게 있다면 (타임아웃 등) 붙여주기
+        final_solution = solution_buffer + buffer if state != "DONE" else solution_buffer
+        capture_container['solution'] = final_solution
 
 def graph_to_png(compiled_graph : "CompiledStateGraph", show_direct : bool = True):
     """

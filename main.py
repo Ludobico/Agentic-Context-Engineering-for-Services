@@ -102,10 +102,12 @@ async def chat_stream(request : ChatRequest):
 
         async for token in solution_stream(serving_graph, initial_state, captured_data):
             # SSE format
-            payload = json.dumps({"token" : token}, ensure_ascii=False)
+            payload = json.dumps(token, ensure_ascii=False)
             yield f"data: {payload}\n\n"
 
-            full_solution += token
+            if token['type'] == 'token':
+                full_solution += token['content']
+                
 
         result_state = initial_state.copy()
         result_state.update(captured_data)
@@ -117,6 +119,9 @@ async def chat_stream(request : ChatRequest):
         route = result_state.get("router_decision", "complex")
 
         if route == 'complex':
+            # serving과 learning은 분리되어있어서 solution_stream으로 learning graph의 로그를 보여줄 수 없음
+            log_msg = {"type" : "log", "content" : "Background Learning..."}
+            yield f"data : {json.dumps(log_msg, ensure_ascii=False)}"
             asyncio.create_task(run_background_learning(result_state))
 
         # openAI format

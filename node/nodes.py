@@ -27,7 +27,7 @@ from module.memory import RedisMemoryManager
 from config.getenv import GetEnv
 from utils import Logger, highlight_print
 
-# TODO : vector store, db 삭제하는 함수(테스트용), vector store로 장기 메모리 저장, 새로운 임베딩모델 테스트
+# TODO : vector store, db 삭제하는 함수(테스트용), 새로운 임베딩모델 테스트, claude gemini 모델 테스트
 
 env = GetEnv()
 llm = RunnableLambda(dynamic_llm_router)

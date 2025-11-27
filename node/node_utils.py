@@ -166,18 +166,19 @@ class StrictJsonOutputParser(JsonOutputParser):
 
         return ''.join(result)
         
-    def _parse_fix_common_errors(self, text : str) -> dict[str, Any]:
-        text = re.sub(r'```json\s*\n?', '', text)
-        text = re.sub(r'```\s*\n?', '', text)
-        text = re.sub(r'`', '', text)
-        text = re.sub(r'\n\s*', ' ', text)
+    def _parse_fix_common_errors(self, text: str) -> dict[str, Any]:
+        text = text.strip()
+        if text.startswith('```json\n') and text.endswith('\n```'):
+            text = text[8:-4].strip()  
+        elif text.startswith('```json') and text.endswith('```'):
+            text = text[7:-3].strip()  
+        elif text.startswith('```\n') and text.endswith('\n```') and text.count('```') == 2:
+            text = text[4:-4].strip()
         
+        # text = re.sub(r'\n\s*', ' ', text)
         text = re.sub(r',(\s*[}\]])', r'\1', text)
-        
         text = re.sub(r"'([^']*)'(\s*:)", r'"\1"\2', text)
-        
         text = re.sub(r'(\{|,)\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'\1"\2":', text)
-
         text = self._escape_unescaped_quotes(text)
 
         try:

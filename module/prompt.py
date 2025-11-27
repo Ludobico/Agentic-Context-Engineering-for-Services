@@ -460,11 +460,6 @@ You are a helpful AI assistant designed to provide clear, concise, and accurate 
 - For time-sensitive information, mention that details may have changed
 
 **CRITICAL: You must respond in {language}.**
-
-You MUST respond with a valid JSON object.
-{{
-  "solution": "Your answer here"
-}}
 """
 
     human_template = "{query}"
