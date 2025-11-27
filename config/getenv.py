@@ -1,16 +1,21 @@
 import os
 from typing import Union
+import shutil
 import configparser
 
 class GetEnv:
     def __init__(self):
         self.curdir = os.path.dirname(os.path.abspath(__file__))
         self.config_path = os.path.abspath(os.path.join(self.curdir, 'config.ini'))
+        self.example_config_path = os.path.abspath(os.path.join(self.curdir, 'config-example.ini'))
         
         if not os.path.exists(self.config_path):
-            self.config_path = os.path.abspath(os.path.join(self.curdir, 'config-example.ini'))
-            if not os.path.exists(self.config_path):
-                raise FileNotFoundError("Neither `config.ini` nor `config-example.ini` were found in the config directory.")
+            if os.path.exists(self.example_config_path):
+                shutil.copy(self.example_config_path, self.config_path)
+            else:
+                raise FileNotFoundError(
+                    "Neither `config.ini` nor `config-example.ini` were found"
+                )
         
         self.props = configparser.ConfigParser()
         self.DEFAULT_SECTION = "DEFAULT"

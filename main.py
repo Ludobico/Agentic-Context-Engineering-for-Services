@@ -22,6 +22,7 @@ logger = Logger(__name__)
 serving_graph = None
 learning_graph = None
 memory_manager = None
+backend_port = env.get_backend_config['BACKEND_PORT']
 
 @asynccontextmanager
 async def lifespan(app : FastAPI):
@@ -124,4 +125,4 @@ async def chat_stream(request : ChatRequest):
     return StreamingResponse(event_generator(), media_type='text/event-stream')
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host='0.0.0.0', port=8000, reload=False)
+    uvicorn.run("main:app", host='0.0.0.0', port=int(backend_port), reload=False)

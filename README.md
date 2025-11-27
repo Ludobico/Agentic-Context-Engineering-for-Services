@@ -37,11 +37,10 @@ We introduced several features absent in the original paper to bridge the gap be
 - **paper** : The benchmark assumes a mono-lingual (English) environment for both queries and context
 
 - **Our Approach** : We implement a **Canonical English Storage** strategy to prevent knowledge fragmentation across languages
-  - **Process**
-    1. **input** : User query in **Any language** (e.g., Korean, Spanish, Japanese).
-    2. **Normalization**: The system rewrites the intent into a standardized English query for retrieval.
-    3. **Unified Knowledge**: The Playbook is maintained in English to serve as a central knowledge hub.
-    4. **Generation** : The Generator utilizes the English context but produces the final solution in the User's Target Language.
+  - **input** : User query in **Any language** (e.g., Korean, Spanish, Japanese).
+  - **Normalization**: The system rewrites the intent into a standardized English query for retrieval.
+  - **Unified Knowledge**: The Playbook is maintained in English to serve as a central knowledge hub.
+  - **Generation** : The Generator utilizes the English context but produces the final solution in the User's Target Language.
 
 #### Structured Retrieval Optimization (Context-Action)
 

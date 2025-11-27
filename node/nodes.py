@@ -209,10 +209,6 @@ async def update_playbook_node(state : State) -> State:
     # halpful, harmful count 누적안됨, 무조건 helpful이 1로 시작 -> 해결필요 -> curator에서 retrieved된 결과를 playbook에 전달하지 않아서 생긴 이슈였음
     logger.debug("PLAYBOOK DELTA UPDATE")
 
-    # model import
-    provider = state.get("llm_provider")
-    model = state.get("llm_model")
-
     updated_playbook = state['playbook'].copy()
     max_playbook_size = state.get("max_playbook_size")
 
