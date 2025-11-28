@@ -10,7 +10,7 @@ import torch
 
 from utils import Logger
 from core import State, ChatRequest
-from graph import create_serving_graph, create_learning_graph
+from graph import create_serving_graph, create_learning_graph, create_full_graph
 from graph.graph_utils import solution_stream
 from config.getenv import GetEnv
 from module.memory import RedisMemoryManager
@@ -21,17 +21,19 @@ logger = Logger(__name__)
 
 serving_graph = None
 learning_graph = None
+full_graph = None
 memory_manager = None
 backend_port = env.get_backend_config['BACKEND_PORT']
 
 @asynccontextmanager
 async def lifespan(app : FastAPI):
-    global serving_graph, learning_graph, memory_manager
+    global serving_graph, learning_graph, full_graph, memory_manager
     torch.cuda.empty_cache()
 
     # graph
     serving_graph = create_serving_graph()
     learning_graph = create_learning_graph()
+    full_graph = create_full_graph()
     # memory
     memory_manager = RedisMemoryManager()
 
@@ -67,6 +69,13 @@ async def delete_chat_history(session_id : str):
 
 @app.post("/chat/stream")
 async def chat_stream(request : ChatRequest):
+
+    print(request.execution_mode)
+    if request.execution_mode == 'full':
+        target_graph = full_graph
+    else:
+        target_graph = serving_graph
+    
     sid = request.session_id
     initial_state = {
         "query" : request.query,
@@ -100,7 +109,7 @@ async def chat_stream(request : ChatRequest):
         # results of Retriever -> Generator
         captured_data = {}
 
-        async for token in solution_stream(serving_graph, initial_state, captured_data):
+        async for token in solution_stream(target_graph, initial_state, captured_data):
             # SSE format
             payload = json.dumps(token, ensure_ascii=False)
             yield f"data: {payload}\n\n"
@@ -112,17 +121,22 @@ async def chat_stream(request : ChatRequest):
         result_state = initial_state.copy()
         result_state.update(captured_data)
         result_state['solution'] = full_solution
-        # memory : question
+
+        # memory : answer
         result_state['session_id'] = sid
         await memory_manager.save_ai_message(sid, full_solution)
 
-        route = result_state.get("router_decision", "complex")
-
-        if route == 'complex':
-            # serving과 learning은 분리되어있어서 solution_stream으로 learning graph의 로그를 보여줄 수 없음
-            log_msg = {"type" : "log", "content" : "Background Learning..."}
-            yield f"data : {json.dumps(log_msg, ensure_ascii=False)}"
-            asyncio.create_task(run_background_learning(result_state))
+        if request.execution_mode == 'standard':
+            route = result_state.get("router_decision", "complex")
+            if route == 'complex':
+                # serving과 learning은 분리되어있어서 solution_stream으로 learning graph의 로그를 보여줄 수 없음
+                # log_msg = {"type" : "log", "content" : "Background Learning..."}
+                # yield f"data : {json.dumps(log_msg, ensure_ascii=False)}"
+                asyncio.create_task(run_background_learning(result_state))
+            else:
+                # log_msg = {"type" : "log", "content" : "Full Cycle Completed"}
+                # yield f"data: {json.dumps(log_msg, ensure_ascii=False)}"
+                pass
 
         # openAI format
         yield "data : [DONE]\n\n"

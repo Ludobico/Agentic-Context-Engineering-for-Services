@@ -62,7 +62,7 @@ class GetEnv:
     @property
     def get_huggingface_token(self):
         huggingface_token = self.props.get(self.EMBEDDING_SECTION, 'HUGGINGFACE_ACCESS_TOKEN', fallback='')
-        return huggingface_token
+        return huggingface_token.strip() or None
     
     @property
     def get_language_code(self):

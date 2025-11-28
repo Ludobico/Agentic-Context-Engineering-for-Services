@@ -12,7 +12,7 @@ from config.getenv import GetEnv
 
 env = GetEnv()
 
-async def solution_stream(graph, input_data, capture_container: dict[str, Any] = None) -> AsyncGenerator:
+async def solution_stream(graph : "CompiledStateGraph", input_data, capture_container: dict[str, Any] = None) -> AsyncGenerator:
     buffer = ""           
     solution_buffer = ""  
     
@@ -25,6 +25,10 @@ async def solution_stream(graph, input_data, capture_container: dict[str, Any] =
         "retriever": "Retriever: Searching Playbook...",
         "simple_generator": "Simple Generator: Generating response...",
         "generator": "Generator: Thinking with Playbook...",
+        "evaluator": "Evaluator: Assessing response quality...",
+        "reflector": "Reflector: Analyzing root causes & insights...",
+        "curator": "Curator: Refining Playbook entries...",
+        "update": "Update: Saving new knowledge to Database..."
     }
 
     async for event in graph.astream_events(input_data, version="v2"):

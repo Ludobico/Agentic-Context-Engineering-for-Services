@@ -76,6 +76,19 @@ if not st.session_state.messages and not st.session_state.get("is_new_chat", Fal
 # sidebar
 # ---------------------------------------------------------
 with st.sidebar:
+    # execution mode
+    exec_mode = st.radio(
+        "Ececution Mode",
+        ["Standard", "Full"],
+        index=0,
+        help="""
+**Standard (Async):** Optimized for low latency. The system responds quickly, and the LLM Router intelligently decides whether to trigger background learning based on query complexity.\n
+**Full Debug (Sync):** Executes the complete ACE cycle (Retrieve → Generate → Evaluate → Reflect → Curate → Update) synchronously. Slower, but provides real-time visibility into every step of the framework.
+"""
+    )
+    mode_value = "standard" if exec_mode == "Standard" else "full"
+    st.divider()
+    
     # new chat
     if st.button("New Chat", use_container_width=True, type='secondary'):
         init_new_chat()
@@ -181,7 +194,8 @@ if prompt := st.chat_input(""):
                 "query" : prompt,
                 "llm_provider" : provider_id,
                 "llm_model" : selected_model,
-                "session_id" : st.session_state.session_id
+                "session_id" : st.session_state.session_id,
+                "execution_mode" : mode_value
                 }
 
             try:

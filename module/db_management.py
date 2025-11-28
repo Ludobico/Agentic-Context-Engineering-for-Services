@@ -1,6 +1,7 @@
 import os
-from typing import Optional
+from typing import Optional, Literal
 import shutil
+import gc
 
 from utils import Logger
 from config.getenv import GetEnv
@@ -61,7 +62,7 @@ class VectorStore:
         self.client = QdrantClient(path=self.db_path)
     
     def _init_embedding_model(self, embedding_dir_or_repo_name: Optional[str], **kwargs) -> HuggingFaceEmbeddings:
-        if embedding_dir_or_repo_name is None and self.huggingface_token:
+        if embedding_dir_or_repo_name is None:
             return EmbeddingPreprocessor.default_embedding_model(**kwargs)
         elif embedding_dir_or_repo_name is not None:
             return EmbeddingPreprocessor.embedding_model(embedding_dir_or_repo_name, **kwargs)
@@ -331,7 +332,36 @@ def verify_vectorstore_db_sync(verbose: bool = True) -> bool:
 
     return all_match
 
+def close_db():
+    global _db_instance
+    if _db_instance is not None:
+        _db_instance.engine.dispose()
+        _db_instance = None
 
+def close_vector_store():
+    global _vector_store_instance
+    if _vector_store_instance is not None:
+        _vector_store_instance.client.close()
+    _vector_store_instance = None
+
+def reset_all_stores(target : Literal['db', 'vs', 'both'] = 'both'):
+    if target in ("db", "both"):
+        close_db()
+    if target in ("vs", "both"):
+        close_vector_store()
+    
+    gc.collect()
+
+    if target in ("db", "both"):
+        db_path = env.get_db_path
+        if os.path.exists(db_path):
+            os.remove(db_path)
+    
+    if target in ("vs", "both"):
+        qdrant_path = os.path.join(env.get_vector_store_dir, env.get_vector_store_name)
+        if os.path.exists(qdrant_path):
+            shutil.rmtree(qdrant_path)
+    
 
 if __name__ == "__main__":
-    verify_vectorstore_db_sync()
+    reset_all_stores()

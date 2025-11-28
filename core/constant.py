@@ -1,0 +1,1 @@
+SUPPORTED_PROVIDERS = {"openai", "anthropic", "google"}
