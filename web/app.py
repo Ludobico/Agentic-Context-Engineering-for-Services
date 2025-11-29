@@ -170,10 +170,30 @@ with st.sidebar:
         index=0,
         disabled=True
     )
-
-    st.info(f"Using: **{selected_model}**")
-    st.caption("To change the model, update `config.ini`.")
     st.divider()
+
+    st.header("Knowledge Base")
+    try:
+        res = requests.get(f"{API_URL}/playbook/stats")
+        if res.status_code == 200:
+            playbook_count = res.json().get("count", 0)
+    except:
+        pass
+
+    st.metric(label="Total insights", value=playbook_count, help="Number of strategies learned so far")
+
+    with st.popover("Reset Playbook"):
+        st.warning("Are you sure? This will delete ALL learned strategies")
+        if st.button("Confirm Reset", type='primary'):
+            try:
+                res = requests.delete(f"{API_URL}/playbook/reset")
+                if res.status_code == 200:
+                    st.success("Playbook cleared")
+                    st.rerun()
+                else:
+                    st.error(f"Failed : {res.text}")
+            except Exception as e:
+                st.error(f"Error : {e}")
 # ---------------------------------------------------------
 
 for message in st.session_state.messages:

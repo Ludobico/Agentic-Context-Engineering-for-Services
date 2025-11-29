@@ -1,4 +1,4 @@
-from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
+from langchain_core.output_parsers import StrOutputParser, JsonOutputParser, PydanticOutputParser
 from langchain_core.documents import Document
 from langchain_core.runnables import RunnableLambda
 import uuid
@@ -42,11 +42,6 @@ curator_chain = curator_prompt() | llm | json_parser
 rewrite_chain = query_rewrite_prompt() | llm | StrOutputParser()
 router_chain = routing_prompt() | llm | json_parser
 simple_chain = simple_prompt() | llm | StrOutputParser()
-
-# DB
-vector_store = get_vector_store_instance()
-db = get_db_instance()
-embedding_model = vector_store.get_embedding_model
 
 # MEMORY
 memory_manager = RedisMemoryManager()
@@ -209,6 +204,11 @@ async def update_playbook_node(state : State) -> State:
     # halpful, harmful count 누적안됨, 무조건 helpful이 1로 시작 -> 해결필요 -> curator에서 retrieved된 결과를 playbook에 전달하지 않아서 생긴 이슈였음
     logger.debug("PLAYBOOK DELTA UPDATE")
 
+    # DB
+    vector_store = get_vector_store_instance()
+    db = get_db_instance()
+    embedding_model = vector_store.get_embedding_model
+
     updated_playbook = state['playbook'].copy()
     max_playbook_size = state.get("max_playbook_size")
 
@@ -343,7 +343,11 @@ async def update_playbook_node(state : State) -> State:
 
 async def retriever_playbook_node(state : State) -> State:
     logger.debug("PLAYBOOK RETRIEVER")
-
+    # DB
+    vector_store = get_vector_store_instance()
+    db = get_db_instance()
+    embedding_model = vector_store.get_embedding_model
+    
     # model import
     provider = state.get("llm_provider")
     model = state.get("llm_model")

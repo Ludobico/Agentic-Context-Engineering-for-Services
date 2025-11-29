@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 class ChatRequest(BaseModel):
@@ -7,4 +7,3 @@ class ChatRequest(BaseModel):
     llm_model : str
     session_id : str
     execution_mode : Optional[str] = 'standard'
-

@@ -14,7 +14,7 @@ from graph import create_serving_graph, create_learning_graph, create_full_graph
 from graph.graph_utils import solution_stream
 from config.getenv import GetEnv
 from module.memory import RedisMemoryManager
-from module.db_management import get_db_instance, get_vector_store_instance
+from module.db_management import get_db_instance, get_vector_store_instance, reset_all_stores
 
 env = GetEnv()
 logger = Logger(__name__)
@@ -142,6 +142,21 @@ async def chat_stream(request : ChatRequest):
         yield "data : [DONE]\n\n"
 
     return StreamingResponse(event_generator(), media_type='text/event-stream')
+
+@app.get("/playbook/stats")
+async def get_playbook_stats():
+    try:
+        vs = get_vector_store_instance()
+        count = vs.get_doc_count()
+        return {"status" : "success", "count" : count}
+    
+    except Exception as e:
+        return {"status" : "error", "count" : 0, "message" : str(e)}
+    
+@app.delete("/playbook/reset")
+async def reset_playbook():
+    reset_all_stores(target='both')
+    return {"status" : "success", "message" : "Playbook reset complete"}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host='0.0.0.0', port=int(backend_port), reload=False)

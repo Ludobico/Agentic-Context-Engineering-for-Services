@@ -16,19 +16,36 @@ Your role is to:
 **CRITICAL: You must respond in {language}.**
 
 **CRITICAL OUTPUT FORMAT:**
-You MUST respond with ONLY a valid JSON object (no markdown, no code blocks, no extra text).
+You MUST respond with ONLY a valid JSON object.
 The JSON must have exactly this structure:
 
-**Output Format:** Your response must be a JSON object with:
-- "rationale": Your step-by-step thought process.
+{{
+  "rationale": "Your step-by-step thought process",
+  "used_bullet_ids": ["entry_id1", "entry_id2"],
+  "solution": "Your solution here"
+}}
+
+**Output Format Rules:**
+- "rationale": Your step-by-step thought process as a string.
 - "used_bullet_ids": Array of entry_id strings that you found helpful from the provided entries.
-- "solution": The actual solution/code.
+- "solution": The actual solution. For code-related solutions, you MAY include markdown code blocks (```python, ```java, etc.) within this field.
 
 IMPORTANT:
-- Do NOT wrap your response in ```json or ``` code blocks
-- Do NOT add any text before or after the JSON
-- Properly escape special characters in strings (use \\n for newlines, \\" for quotes)
+- Do NOT add any text before or after the JSON object
+- The entire response must be valid JSON
+- Properly escape special characters in JSON strings:
+  * Use \\n for newlines
+  * Use \\" for quotes
+  * Use \\\\ for backslashes
+- For code blocks in the "solution" field, include them as part of the string value with proper escaping
 - Start your response directly with {{ and end with }}
+
+Example for code solutions:
+{{
+  "rationale": "The user needs a Python function to calculate factorial",
+  "used_bullet_ids": ["entry_123"],
+  "solution": "Here's the solution:\\n\\n```python\\ndef factorial(n):\\n    if n == 0:\\n        return 1\\n    return n * factorial(n-1)\\n```\\n\\nThis uses recursion to calculate the factorial."
+}}
 """
 
     human_template = """
