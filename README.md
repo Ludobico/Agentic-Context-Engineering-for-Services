@@ -2,76 +2,139 @@
 
 ![ace](./static/ace.png)
 
-**Agentic Context Engineering (ACE)** is a framework for self-improving Language Models that optimizes **context** rather than fine-tuning model weights. Proposed by Zhang et al. (2025), It addresses the limitations of existing prompt optimization methods, suas as **Brevity Bias** (loss of domain detail) and **Context Collapse** (degradation of information over repeated rewrites).
+**Agentic Context Engineering (ACE)** is a framework for self-improving Language Models that optimizes **context** rather than fine-tuning model weights. Proposed by Zhang et al. (2025), ACE addresses **Brevity Bias** and **Context Collapse** by treating context as an **Evolving Playbook**—a dynamic collection of strategies, code snippets, and lessons learned.
 
-Instead of maintaining a static prompt or a compressed summary, ACE treats context as an **Evolving Playbook** - a dynamic collection of strategies, code snippets, and lessons learned. The framework operates through an agentic workflow consisting of three distinct roles:
+This repository transforms the theoretical ACE framework into a **production-ready, full-stack agentic service** featuring asynchronous learning, multi-model support, and a robust memory architecture.
 
-1. **Generator** : Solves the task using the current playbook as a reference
+---
 
-2. **Reflector** : Analyzes the execution trajectory and feedback to identify the root causes of successes of failures
+## Key Features (Service-Oriented)
 
-3. **Curator** : Synthesizes these insights into structured **Delta Updates** (Add/Update), ensuring the playbook grows incrementally without redundancy.
+Unlike the original paper which focuses on the theoretical algorithm, this implementation is built for **real-world serving**.
 
-By leveraging this cycle, ACE enables agents to accumulate domain-specific knowledge and avoid repeating past mistakes, achieving state-of-the-art performance on complex reasoning benchmarks.
+### 1. Decoupled Architecture (Zero Latency Learning)
 
-## Implementation Details & Key Differences
+We separated **Inference** from **Learning** to maximize responsiveness:
 
-This repository implements the **Agentic Context Engineering (ACE)** framework proposed by Zhang et al. (2025), but with significant architectural enhancements designed for production stability, multi-language support, and execution reliability. Below is a detailed comparison between the original paper's theoretical framework and out practical implementation.
+- **Serving Graph**: Handles user queries, intelligent routing, and retrieval to provide immediate responses.
+- **Learning Graph**: Runs in the background (asynchronous), analyzing execution trajectories to update the Playbook without blocking the user.
 
-### 1. Architectural Evolution: From Concept to Service
+### 2. Multi-Provider LLM Support
 
-While the paper describes a conceptual flow (Generator → Reflector → Curator), our implementation utilizes **LangGraph** to orchestrate a robust state machine with distinct functional nodes.
+Dynamically switch between SOTA models for different parts of the chain via UI/API:
 
-| Feature          | Paper (Theoretical)                                                   | Our Implementation                                                                                                                               |
-| ---------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Workflow         | Sequential generation and reflection                                  | Cyclic State Graph: Explicit edges between `retriever` → `generator` → `evaluator` → `reflector` → `curator` → `update`                          |
-| Evaluation       | Implicitly part of the Reflection step; relies on LLM self-assessment | Dedicated Evaluation Module: A standalone quality gate that runs before Reflection, supporting both deterministic code execution and LLM grading |
-| Input Processing | Direct input usage                                                    | Query Intent Normalization: Inputs are rewritten to abstract specific entities into generalizable intent before retrieval.                       |
+- **OpenAI** (GPT-4o, GPT-4o-mini)
+- **Anthropic** (Claude 3.5 Sonnet)
+- **Google** (Gemini 1.5 Pro)
 
-### 2. Service-Oriented Improvements
+### 3. Smart Routing & Mode Switching
 
-We introduced several features absent in the original paper to bridge the gap between academic research and a deployable service.
+- **Standard Mode (Async)**: Intelligent router decides if a query is "Simple" (Direct Answer) or "Complex" (ACE Playbook). Learning happens in the background.
+- **Full Debug Mode (Sync)**: Forces the full cycle (Retrieve → Generate → Evaluate → Reflect → Update) for visibility and debugging.
 
-#### Cross-Lingual RAG Architecture (Canonical English Storage)
+### 4. Robust Memory & Storage Stack
 
-- **paper** : The benchmark assumes a mono-lingual (English) environment for both queries and context
+- **Vector Store (Qdrant)**: Stores semantic embeddings of Playbook entries.
+- **Relational DB (SQLite)**: Manages metadata, usage statistics (Helpful/Harmful counts), and timestamps.
+- **Session Memory (Redis)**: Manages multi-turn chat history with sliding window context.
 
-- **Our Approach** : We implement a **Canonical English Storage** strategy to prevent knowledge fragmentation across languages
-  - **input** : User query in **Any language** (e.g., Korean, Spanish, Japanese).
-  - **Normalization**: The system rewrites the intent into a standardized English query for retrieval.
-  - **Unified Knowledge**: The Playbook is maintained in English to serve as a central knowledge hub.
-  - **Generation** : The Generator utilizes the English context but produces the final solution in the User's Target Language.
+---
 
-#### Structured Retrieval Optimization (Context-Action)
+## Architecture
 
-- **paper** : Relies on general semantic similarity for retrieval
+This project utilizes **LangGraph** to orchestrate three distinct state graphs:
 
-- **Our Approach** : We enforce a strict **Context-Action** schema on the Curator
-  - **Constraint** : New insights must be formulated as "When [Context]... Use [Action]..."
-  - **Categorization** : Insights are strictly classified into technical categories (e.g., Code Snippets, Pitfalls, Best Practices)
+### A. Serving Graph
 
-#### Hybrid Execution-Based Evaluation
+Optimized for speed.
 
-- **Paper**: Relies heavily on LLM-based natural language feedback
+1. **Router**: Classifies query (Simple vs. Complex).
+2. **Simple Generator**: Handles chitchat/facts.
+3. **Retriever**: Fetches relevant strategies.
+4. **Generator**: Produces solution using the Playbook.
 
-- **Our Approach** : We introduced a Hybrid Evaluator architecture capable of integrating objective signals
-  - **Grounded Verification** : The Evaluator executes code in a sandbox to detect runtime errors or logic failures, providing indisputable facts (e.g., AttributeError, Test Failed) to the Reflector
-  - **Objective Learning** : The Reflector uses this objective feedback to determine if a Playbook entry caused the failure. It applies the "Harmful" tag only when the Playbook explicitly provided misleading instructions, distinguishing between bad advice and simple generation errors
+### B. Learning Graph
 
-#### Decoupled Inference & Learning Pipeline (Planned)
+Optimized for quality. Runs asynchronously via FastAPI background tasks.
 
-- **Paper**: Inference and Adaptation are sequential, forcing the user to wait for the update process
+1. **Evaluator**: Hybrid evaluation using **Unit Tests (Code Execution)** and **LLM Logic**.
+2. **Reflector**: Diagnoses root causes of success/failure.
+3. **Curator**: Synthesizes insights into `ADD` or `UPDATE` operations.
+4. **Update**: Applies changes to the Playbook (Pruning & Deduplication).
 
-- **Our Approach** : We are designing a split pipeline to optimize latency.
-  - **Streaming Inference**: The system currently utilizes token streaming to provide immediate feedback to the user while the graph executes.
-  - **Async Learning (In Progress)**: We plan to fully decouple the Evaluator → Update nodes into a background process. This will allow the system to scale learning operations independently of user traffic.
+### C. Full Graph
 
-### 3. Concrete Pruning & Memory Management
+Combines both for synchronous debugging and development.
 
-The paper introduces the concept of "Grow-and-refine" but leaves the implementation abstract. Our system concretizes this logic through a rigorous Memory Management Strategy
+---
 
-1. **Poison Detection**: Automatically removes playbook entries where negative feedback (Harmful) outweighs positive usage (Helpful), cleansing the system of misleading strategies
+## Implementation Details & Differences
 
-2. **Capacity Control (LRU)**: Implements a hard limit on playbook size. When the limit is reached, it evicts entries based on a combination of Utility Score (Helpful count) and Recency (Least Recently Used)
+We bridge the gap between academic research and deployable services with specific enhancements.
 
-3. **Semantic Deduplication**: The Curator proactively checks for semantic similarity before adding new entries, merging insights instead of creating duplicates to prevent context pollution
+| Feature        | Paper (Theoretical)             | Our Implementation (Production)                                                      |
+| :------------- | :------------------------------ | :----------------------------------------------------------------------------------- |
+| **Workflow**   | Sequential (Generate → Reflect) | **Decoupled**: Serving Graph (Fast) + Background Learning Graph                      |
+| **Routing**    | Process every query             | **Semantic Router**: Distinguishes "Chitchat" vs "Strategy Tasks"                    |
+| **Memory**     | Abstract concept                | **Redis**: Persistent session history management                                     |
+| **Storage**    | Single source                   | **Hybrid**: Qdrant (Vector) + SQLite (Meta) + Redis (Session)                        |
+| **Evaluation** | LLM Feedback only               | **Hybrid Execution**: Sandbox Code Execution + LLM Reasoning                         |
+| **Language**   | English Monolingual             | **Canonical English Storage**: Multilingual Input → English Logic → Localized Output |
+
+### Core Logic & Advanced Mechanics
+
+#### 1. Concrete Pruning & Memory Management
+
+The paper introduces "Grow-and-refine" abstractly. We implemented a rigorous **Memory Management Strategy**:
+
+- **Poison Detection**: Automatically removes entries where negative feedback (Harmful) outweighs positive usage (Helpful).
+- **Capacity Control (LRU)**: Enforces `MAX_PLAYBOOK_SIZE`. Evicts entries based on **Utility Score** (Helpful count) and **Recency** (Last Used).
+- **Semantic Deduplication**: The Curator checks vector similarity before adding new entries to prevent context pollution.
+
+#### 2. Cross-Lingual RAG Architecture
+
+To prevent knowledge fragmentation:
+
+- **Input**: User asks in any language (e.g., Korean).
+- **Process**: Internal logic (Retrieval, Reflection, Curation) operates in **English** to maintain a unified knowledge base.
+- **Output**: The final response is generated in the user's target language.
+
+#### 3. Structured Retrieval Optimization
+
+The Curator enforces a schema (`Context-Action`) to maximize retrieval accuracy for "How-to" queries.
+
+---
+
+## Evaluation & Self-Improvement Analysis
+
+We validated the effectiveness of the ACE framework using two challenging benchmarks: OpenAI HumanEval (Code Generation) and HotpotQA (Multi-hop Reasoning). The visualizations below demonstrate how the system autonomously improves its performance over time without any weight updates.
+
+### Learning Curve & Knowledge Dynamics
+
+The dashboards illustrate the real-time evolution of the agent. In both domains, the agent successfully accumulates knowledge and manages its memory within the defined constraints.
+
+#### Reasoning Benchmark (HotpotQA)
+
+![alt text](./evaluation/figures/hotpotqa_metrics.png)
+
+#### Coding Benchmark (HumanEval)
+
+![alt text](./evaluation/figures/human_eval_metrics.png)
+
+**Key Observations**:
+
+- Self-Improvement (Top): The Cumulative Accuracy (Blue) shows a steady upward trend in both benchmarks. Notably, HumanEval shows rapid adaptation in the early stages as the agent learns common coding patterns.
+- Memory Management (Middle): The Playbook Size (Green) stabilizes exactly at the configured limit (e.g., 50 or 60 entries). The flat line confirms that our Pruning & LRU Logic is actively removing low-utility entries to prevent context pollution.
+- Retrieval Utility (Bottom): The Hit Rate (Red) correlates with the success rate, proving that the Router and Retriever are effectively fetching relevant strategies for the task at hand.
+
+### Impact of "Helpful" Context
+
+Does the Playbook actually help? We analyzed the success rate difference between cases where retrieved context was marked "Helpful" versus cases where it was "Low Utility" (Neutral/Harmful).
+
+#### HotpotQA (Reasoning)
+
+![alt text](./evaluation/figures/hotpotqa_metrics_impact.png)
+
+#### HumanEval (Coding)
+
+![alt text](./evaluation/figures/human_eval_metrics_impact.png)
