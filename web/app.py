@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 import requests
 import json
 import time
@@ -7,14 +8,14 @@ import uuid
 from config.getenv import GetEnv
 
 env = GetEnv()
-port = env.get_backend_config['BACKEND_PORT']
+port = int(os.getenv("BACKEND_PORT"))
 
 st.set_page_config(
     page_title="ACE Framework",
     layout='wide'
 )
 
-API_URL = f"http://localhost:{port}"
+API_URL = os.getenv("BACKEND_URL", f"http://localhost:{port}")
 
 st.title("ACE Framework : Self-Improving Agent")
 

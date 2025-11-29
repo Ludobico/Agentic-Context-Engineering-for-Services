@@ -59,7 +59,14 @@ class VectorStore:
         self.embedding_model = self._init_embedding_model(embedding_dir_or_repo_name, **kwargs)
         self.vector_store_dir = env.get_vector_store_dir
         self.db_path, self.db_name = self._get_db_info(db_name)
-        self.client = QdrantClient(path=self.db_path)
+
+        qdrant_host = os.getenv("QDRANT_HOST")
+        if qdrant_host:
+            # docker
+            self.client = QdrantClient(url=f"http://{qdrant_host}:6333")
+        else:
+            # local
+            self.client = QdrantClient(path=self.db_path)
     
     def _init_embedding_model(self, embedding_dir_or_repo_name: Optional[str], **kwargs) -> HuggingFaceEmbeddings:
         if embedding_dir_or_repo_name is None:

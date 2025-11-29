@@ -1,4 +1,5 @@
 import uvicorn
+import os
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,7 +24,7 @@ serving_graph = None
 learning_graph = None
 full_graph = None
 memory_manager = None
-backend_port = env.get_backend_config['BACKEND_PORT']
+backend_port = int(os.getenv("BACKEND_PORT"))
 
 @asynccontextmanager
 async def lifespan(app : FastAPI):

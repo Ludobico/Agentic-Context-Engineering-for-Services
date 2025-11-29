@@ -10,8 +10,12 @@ memory_limit = env.get_memory_config['MAX_MEMORY_SIZE']
 
 class RedisMemoryManager:
     def __init__(self):
-        self.redis_host = env.get_memory_config['REDIS_HOST']
-        self.redis_port = env.get_memory_config['REDIS_PORT']
+        # 도커 환경변수부터 확인
+        env_host = os.getenv("REDIS_HOST")
+        env_port = os.getenv("REDIS_PORT")
+        self.redis_host = env_host if env_host else env.get_redis_host
+        self.redis_port = int(env_port) if env_port else int(env.get_redis_port)
+
         self.max_memory_size = env.get_memory_config['MAX_MEMORY_SIZE']
 
         self.r = redis.Redis(

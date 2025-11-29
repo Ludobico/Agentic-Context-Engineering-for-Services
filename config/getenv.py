@@ -2,12 +2,15 @@ import os
 from typing import Union
 import shutil
 import configparser
+from dotenv import load_dotenv
 
 class GetEnv:
     def __init__(self):
         self.curdir = os.path.dirname(os.path.abspath(__file__))
         self.config_path = os.path.abspath(os.path.join(self.curdir, 'config.ini'))
         self.example_config_path = os.path.abspath(os.path.join(self.curdir, 'config-example.ini'))
+
+        load_dotenv(os.path.join(self.curdir, '..', '.env'))
         
         if not os.path.exists(self.config_path):
             if os.path.exists(self.example_config_path):
@@ -24,7 +27,6 @@ class GetEnv:
         self.PLAYBOOK_SECTION = "PLAYBOOK"
         self.DATABASE_SECTION = "DATABASE"
         self.MEMORY_SECTION = "MEMORY"
-        self.BACKEND_SECTION = "BACKEND"
         self.EVAL_SECTION = "EVAL"
         self.props.read(self.config_path, encoding='utf-8')
 
@@ -80,9 +82,16 @@ class GetEnv:
         return memory_config
     
     @property
+    def get_redis_port(self):
+        return os.getenv("REDIS_PORT", 6379)
+    
+    @property
+    def get_redis_host(self):
+        return os.getenv("REDIS_HOST", 'localhost')
+    
+    @property
     def get_backend_config(self):
-        backend_config = self.props[self.BACKEND_SECTION]
-        return backend_config
+        return int(os.getenv("BACKEND_PORT", 8000))
     
     @property
     def get_eval_config(self):
