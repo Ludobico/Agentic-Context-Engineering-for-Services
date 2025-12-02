@@ -12,7 +12,7 @@ import torch
 from utils import Logger
 from core import State, ChatRequest
 from graph import create_serving_graph, create_learning_graph, create_full_graph
-from graph.graph_utils import solution_stream
+from graph.graph_utils import solution_stream, initialize_langsmith_tracking
 from config.getenv import GetEnv
 from module.memory import RedisMemoryManager
 from module.db_management import get_db_instance, get_vector_store_instance, reset_all_stores
@@ -32,6 +32,7 @@ async def lifespan(app : FastAPI):
     torch.cuda.empty_cache()
 
     # graph
+    initialize_langsmith_tracking()
     serving_graph = create_serving_graph()
     learning_graph = create_learning_graph()
     full_graph = create_full_graph()
@@ -101,9 +102,6 @@ async def chat_stream(request : ChatRequest):
 
     # memory : question
     await memory_manager.save_user_message(sid, request.query)
-
-    logger.debug(f"provider : {request.llm_provider}")
-    logger.debug(f"model : {request.llm_model}")
 
     async def event_generator():
         full_solution = ""
