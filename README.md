@@ -6,6 +6,8 @@
 
 This repository transforms the theoretical ACE framework into a **production-ready, full-stack agentic service** featuring asynchronous learning, multi-model support, and a robust memory architecture.
 
+![ACE Framework UI](./static/frontend.png)
+
 ## Key Features (Service-Oriented)
 
 Unlike the original paper which focuses on the theoretical algorithm, this implementation is built for **real-world serving**.
