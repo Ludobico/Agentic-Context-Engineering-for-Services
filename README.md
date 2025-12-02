@@ -147,6 +147,7 @@ Clone the repository and install dependencies using uv
 
 ```bash
 uv sync
+uv pip install -e .
 ```
 
 ### 2. Configuration
@@ -194,6 +195,11 @@ Once running, access the application at:
 
 Frontend (UI): http://localhost:8501
 Backend (API): http://localhost:8000
+
+**Ready Check**:
+The application is fully ready to use when the Knowledge Base count appears on the sidebar (indicating that the Vector Store has been successfully loaded)
+
+![alt_text](./static/vector_store_loading.png)
 
 ## License & Citation
 
