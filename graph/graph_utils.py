@@ -7,10 +7,12 @@ import os
 import io
 import json
 
-from utils import highlight_print
+from utils import highlight_print, Logger
 from config.getenv import GetEnv
 
 env = GetEnv()
+
+logger = Logger(__name__)
 
 async def solution_stream(graph : "CompiledStateGraph", input_data, capture_container: dict[str, Any] = None) -> AsyncGenerator:
     buffer = ""           
@@ -169,3 +171,31 @@ def graph_to_png(compiled_graph : "CompiledStateGraph", show_direct : bool = Tru
         output_path = os.path.join(env.get_log_dir, 'graph.png')
         image.save(output_path, format='png')
         highlight_print(f"graph image is saved at {output_path}", 'green')
+
+def initialize_langsmith_tracking(show_tracking : bool = True):
+    env = GetEnv()
+    """
+    Tracking log via langsmith\n
+    Set `show_tracking` to False if you don't want to display in the terminal
+    """
+    if not env.get_monitoring_enabled:
+        return
+    
+    langsmith_api_key = env.get_langsmith_api_key
+
+    project_name = env.get_langsmith_project_name
+
+    if not langsmith_api_key or not project_name:
+        if show_tracking:
+            logger.warning("LangSmith Monitor is True, but API Key or Project Name is missing")
+            return
+
+    # activate V2 tracing
+    os.environ["LANGCHAIN_TRACING_V2"] = "true" 
+    os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
+    os.environ["LANGCHAIN_API_KEY"] = langsmith_api_key
+    os.environ["LANGCHAIN_PROJECT"] = project_name
+
+    # cyan
+    if show_tracking:
+        highlight_print(project_name, color='cyan')

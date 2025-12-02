@@ -28,6 +28,7 @@ class GetEnv:
         self.DATABASE_SECTION = "DATABASE"
         self.MEMORY_SECTION = "MEMORY"
         self.EVAL_SECTION = "EVAL"
+        self.MONITORING_SECTION = "MONITORING"
         self.props.read(self.config_path, encoding='utf-8')
 
     def _ensure_dir(self, path : Union[str, os.PathLike]):
@@ -160,3 +161,20 @@ class GetEnv:
         self._ensure_dir(figures_dir)
         return figures_dir
     
+    @property
+    def get_monitoring_enabled(self) -> bool:
+        if self.MONITORING_SECTION not in self.props:
+            return False
+        return self.props.getboolean(self.MONITORING_SECTION, 'MONITOR', fallback=False)
+    
+    @property
+    def get_langsmith_api_key(self):
+        if self.MONITORING_SECTION not in self.props:
+            return ""
+        return self.props.get(self.MONITORING_SECTION, 'LANG_SMITH_API_KEY', fallback='').strip()
+    
+    @property
+    def get_langsmith_project_name(self) -> str:
+        if self.MONITORING_SECTION not in self.props:
+            return ""
+        return self.props.get(self.MONITORING_SECTION, 'LANG_SMITH_PROJECT_NAME', fallback='').strip()
