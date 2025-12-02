@@ -6,8 +6,6 @@
 
 This repository transforms the theoretical ACE framework into a **production-ready, full-stack agentic service** featuring asynchronous learning, multi-model support, and a robust memory architecture.
 
----
-
 ## Key Features (Service-Oriented)
 
 Unlike the original paper which focuses on the theoretical algorithm, this implementation is built for **real-world serving**.
@@ -23,9 +21,9 @@ We separated **Inference** from **Learning** to maximize responsiveness:
 
 Dynamically switch between SOTA models for different parts of the chain via UI/API:
 
-- **OpenAI** (GPT-4o, GPT-4o-mini)
-- **Anthropic** (Claude 3.5 Sonnet)
-- **Google** (Gemini 1.5 Pro)
+- **OpenAI**
+- **Anthropic**
+- **Google**
 
 ### 3. Smart Routing & Mode Switching
 
@@ -37,8 +35,6 @@ Dynamically switch between SOTA models for different parts of the chain via UI/A
 - **Vector Store (Qdrant)**: Stores semantic embeddings of Playbook entries.
 - **Relational DB (SQLite)**: Manages metadata, usage statistics (Helpful/Harmful counts), and timestamps.
 - **Session Memory (Redis)**: Manages multi-turn chat history with sliding window context.
-
----
 
 ## Architecture
 
@@ -65,8 +61,6 @@ Optimized for quality. Runs asynchronously via FastAPI background tasks.
 ### C. Full Graph
 
 Combines both for synchronous debugging and development.
-
----
 
 ## Implementation Details & Differences
 
@@ -103,8 +97,6 @@ To prevent knowledge fragmentation:
 
 The Curator enforces a schema (`Context-Action`) to maximize retrieval accuracy for "How-to" queries.
 
----
-
 ## Evaluation & Self-Improvement Analysis
 
 We validated the effectiveness of the ACE framework using two challenging benchmarks: OpenAI HumanEval (Code Generation) and HotpotQA (Multi-hop Reasoning). The visualizations below demonstrate how the system autonomously improves its performance over time without any weight updates.
@@ -138,3 +130,88 @@ Does the Playbook actually help? We analyzed the success rate difference between
 #### HumanEval (Coding)
 
 ![alt text](./evaluation/figures/human_eval_metrics_impact.png)
+
+## Installation & Usage
+
+### Prerequisites
+
+Before you start, ensure you have the following installed:
+
+- Python 3.12+
+- uv (Fast Python package manager)
+- Redis Server (Must be running on localhost:6379)
+
+### 1. Installation
+
+Clone the repository and install dependencies using uv
+
+```bash
+uv sync
+```
+
+### 2. Configuration
+
+First, set up your environment variables
+
+1. Copy the example config file:
+
+```bash
+# Rename the example file
+mv config-example.ini config.ini
+# OR just use config-example.ini (the system auto-detects it)
+```
+
+2. Open config.ini and configure your API keys and settings
+
+⚠️ **Important Note on Embedding Models**
+If you change the HUGGINGFACE_ACCESS_TOKEN status (e.g., switching from the open-source model to the gated Gemma model), you MUST reset your Vector Store and Database to avoid dimension mismatch errors
+
+### 3. Execution
+
+You need to run the Backend (API) and Frontend (UI) in separate terminals
+
+#### Windows
+
+```bash
+@REM Terminal 1: Run Backend
+start cmd /k "uv run python -m main"
+
+@REM Terminal 2: Run Frontend
+start cmd /k "uv run streamlit run web/app.py"
+```
+
+#### Linux / macOS
+
+```bash
+# Terminal 1: Run Backend
+uv run python -m main
+
+# Terminal 2: Run Frontend
+uv run streamlit run web/app.py
+```
+
+Once running, access the application at:
+
+Frontend (UI): http://localhost:8501
+Backend (API): http://localhost:8000
+
+## License & Citation
+
+This project is an open-source implementation based on the research paper "Agentic Context Engineering: Evolving Contexts for Self-Improving Language Models"
+
+### License
+
+This repository is released under the MIT License. You are free to use, modify, and distribute this code for both academic and commercial purposes
+
+### Citation
+
+If you use this code or the ACE framework in your research, please cite the original paper
+
+```bibtex
+@article{zhang2025ace,
+  title={Agentic Context Engineering: Evolving Contexts for Self-Improving Language Models},
+  author={Zhang, Qizheng and Hu, Changran and others},
+  journal={arXiv preprint arXiv:2510.04618},
+  year={2025}
+}
+```
