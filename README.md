@@ -1,10 +1,15 @@
 ## Agentic Context Engineering (ACE)
 
 **[Key Features](#key-features-service-oriented)**
+
 **[Architecture](#architecture)**
+
 **[Implementation Details](#implementation-details--differences)**
+
 **[Evaluation](#evaluation--self-improvement-analysis)**
+
 **[Installation](#installation--usage)**
+
 **[License](#license--citation)**
 
 ![ace](./static/ace.png)
