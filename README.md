@@ -1,5 +1,12 @@
 ## Agentic Context Engineering (ACE)
 
+**[Key Features](#key-features-service-oriented)**
+**[Architecture](#architecture)**
+**[Implementation Details](#implementation-details--differences)**
+**[Evaluation](#evaluation--self-improvement-analysis)**
+**[Installation](#installation--usage)**
+**[License](#license--citation)**
+
 ![ace](./static/ace.png)
 
 **Agentic Context Engineering (ACE)** is a framework for self-improving Language Models that optimizes **context** rather than fine-tuning model weights. Proposed by Zhang et al. (2025), ACE addresses **Brevity Bias** and **Context Collapse** by treating context as an **Evolving Playbook**—a dynamic collection of strategies, code snippets, and lessons learned.
