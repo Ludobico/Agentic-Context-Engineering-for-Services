@@ -1,4 +1,6 @@
-## Agentic Context Engineering (ACE)
+## Agentic Context Engineering for Services (ACES)
+
+[![ko](https://img.shields.io/badge/lang-ko-green.svg)](./README.ko.md)
 
 **[Key Features](#key-features-service-oriented)**
 
